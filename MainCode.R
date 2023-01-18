@@ -9,13 +9,14 @@ y = # original sample to be used in bootstrap of dimension T * n_y, so n_y varia
 T = 100 # observations of y
 
 n_z = # number of state space variables
-n_y = # number of observed variables
+n_y = 5# number of observed variables
 #########apply kalman filter###############
 
 
-eps_hat = # initialize empty innovation residual matrix of  dimension (T-1) * n_y  
+eps_hat = matrix(0,nrow=(T-1),ncol=n_y)# initialize empty innovation residual matrix of  dimension (T-1) * n_y  
+
 cov_eps_hat =   # estimated covariance matrices
-eps_hat_c = eps_hat - (1/(T-1))*sum(eps_hat) # vector of centered residuals
+eps_hat_c = eps_hat - (1/(T-1))*sum(eps_hat) # (T-1)*n_y matrix of centered residuals
 
 sigma_epsilon_hat_sqrt_inv = inv(sqrtm(cov_eps_hat))
 
@@ -26,7 +27,7 @@ for(i in 1:T-1){
 }
 
 for(i in 1:T-1){
-  eps_hat[i+1] = y[i+1] - C %*% Z_hat[i] # we start from index i+1 for eps_hat since we need to start at eps_hat_2
+  eps_hat_c[,i+1] = eps_hat[,i+1] - (1/(T-1))*sum(eps_hat[,i+1])
 }
 
 
