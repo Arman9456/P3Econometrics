@@ -1,4 +1,4 @@
-# Main code 
+# Main code#
 #install.packages()
 
 library(matlib)
