@@ -10,8 +10,19 @@ T = 100 # observations of y
 
 n_z = # number of state space variables
 n_y = 5# number of observed variables
-#########apply kalman filter###############
+C = #n_y x n_z matrix of coefficients for measurement equation
+A = # n_z x n_z matrix of coefficients of state equation
+Z = # (T-1) x n_z matrix of state variables over all time points (rows)
+B = # n_z x n_w matrix of coefficients for shocks of state equation
+D = # n_z x n_w matrix of coefficients for shocks of measurement equation
 
+  
+##### Monte carlo simulation #########  
+for (i in 1:N){
+#########Apply kalman filter and get a sample###############
+
+  ####### apply bootstrap in this loop
+}
 
 eps_hat = matrix(0,nrow=(T-1),ncol=n_y)# initialize empty innovation residual matrix of  dimension (T-1) * n_y  
 
@@ -33,7 +44,7 @@ for(i in 1:T-1){
 # get centered residuals and standardized innovations
 for(i in 1:T-1){
   eps_hat_c[i+1,] = eps_hat[i+1,] - (1/(T-1))*eps_hat_sum # we make the centered residuals
-  res_hat = sigma_epsilon_hat_sqrt_inv[i+1[]] %*% t(eps_hat_c[i+1,]) # should be multiplication of n_y x n_y matrix with n_y x 1 eps_hat_c[i+1,] for each t
+  res_hat = sigma_epsilon_hat_sqrt_inv[i+1[... how to make list of matrices]] %*% t(eps_hat_c[i+1,]) # should be multiplication of n_y x n_y matrix with n_y x 1 eps_hat_c[i+1,] for each t
 }
 
 
