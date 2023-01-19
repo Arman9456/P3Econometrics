@@ -4,6 +4,23 @@
 library(matlib)
 library(expm)
 
+# DGP parameters #
+sigma = 1
+alpha = 0.75
+beta = 0.99
+omega = 1
+rho_z = 0.90
+theta = 6
+sigma_z = 0.30
+sigma_r = 0.20
+kappa =( ((1-alpha)*(1-alpha*beta))/alpha )*( (omega+sigma)/(sigma*(omega+theta)))
+phi_pi = 1.5
+phi_x = 0.125
+rho_r = 0.75
+
+
+
+
 B=5 # nr of bootstrap iterations
 y = # original sample to be used in bootstrap of dimension T * n_y, so n_y variables per time point
 T = 100 # observations of y
@@ -16,7 +33,7 @@ Z = # (T-1) x n_z matrix of state variables over all time points (rows)
 B = # n_z x n_w matrix of coefficients for shocks of state equation
 D = # n_z x n_w matrix of coefficients for shocks of measurement equation
 
-  
+
 ##### Monte carlo simulation #########  
 for (i in 1:N){
 #########Apply kalman filter and get a sample###############
@@ -26,10 +43,10 @@ for (i in 1:N){
 
 eps_hat = matrix(0,nrow=(T-1),ncol=n_y)# initialize empty innovation residual matrix of  dimension (T-1) * n_y  
 
-cov_eps_hat =   # estimated covariance matrix at time t of dimension n_y x n_y 
+cov_eps_hat =  C_hat %*% P_t %*% t(C_hat) + D_hat %*% cov_w_hat %*% t(D_hat) # estimated covariance matrix at time t of dimension n_y x n_y 
 eps_hat_c =  matrix(0,nrow=(T-1),ncol=n_y) # (T-1)*n_y matrix of centered residuals
 
-sigma_epsilon_hat_sqrt_inv =  inv(sqrtm(cov_eps_hat)) # list of dimension (T-1) x  (n_y x n_y) so T-1 matrices of dimension (n_y x n_y)
+sigma_epsilon_hat_sqrt_inv =  diag(inv(sqrtm(cov_eps_hat))) # list of dimension (T-1) x  (n_y x n_y) so T-1 matrices of dimension (n_y x n_y)
 
 res_hat = sigma_epsilon_hat_sqrt_inv * eps_hat_c 
 
