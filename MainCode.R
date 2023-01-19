@@ -21,7 +21,7 @@ rho_r = 0.75
 
 
 
-B=5 # nr of bootstrap iterations
+B=1999 # nr of bootstrap iterations
 y = # original sample to be used in bootstrap of dimension T * n_y, so n_y variables per time point
 T = 100 # observations of y
 
