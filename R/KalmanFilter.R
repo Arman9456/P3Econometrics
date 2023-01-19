@@ -59,7 +59,6 @@ SystemMat_fctn <- function(paramVec) {
 #' @return constrained parameter vector
 
 KalmanRecursions <- function(data, paramVec, systemList, outLogLik) {
-  # System matrices (eq. 1, 2)
   # Transition eq
   A <- systemList$A
   B <- systemList$B
@@ -75,47 +74,69 @@ KalmanRecursions <- function(data, paramVec, systemList, outLogLik) {
 
   # Initialize the output
   logLik_T <- 0
-  a_tt_mat <- matrix(NA, nr = dimens, nc = nPeriods)
+  Z_tt_mat <- matrix(NA, nr = dimens, nc = nPeriods)
   P_tt_array <- array(NA, dim = c(dimens, dimens, nPeriods))
   K_t_array <- array(NA, dim = c(Dimans, Dimens, nPeriods))
+  epsilonSt_vec <- rep(NA, nPeriods)
 
   # Initialize the filter routine (diffusely)
   # State vector with zeros
-  a_t1 <- matrix(0, nrow = Dimens, nc = 1)
+  Z_t1 <- matrix(0, nrow = Dimens, nc = 1)
   # State vector var-cov matrix with very high variance
   P_t1 <- diag(dimens) * 1000
 
   # Run the recursions (until nPeriods-1 bc state vector enters measurement eq with lag (eq. 2))
   for (i in 1:(nPeriods - 1)) {
+    
+    #-------------------#
+    # Get innovations
+    #-------------------#
+
     # One step ahead prediction error
-    epsilon_t <- as.numeric(data[i + 1, ] - C %*% a_tt)
+    epsilon_t <- as.numeric(data[i + 1, ] - C %*% Z_tt)
     # One step ahead prediction error
     Sigma_t <- as.numeric(C %*% P_tt %*% transC + D)
+    # standardized prediction errors
+    epsilonSt_t <- Sigma_t^(-.5) * epsilon_t
 
-    # Calculation and storage of log-likelihood
-    lik_t <- dnorm(epsilon_t, sd = sqrt(Sigma_t))
-    logLik_T <- logLik_T - log(lik_t)
+    #-------------------#
+    # Updating step
+    #-------------------#
 
     # Kalman gain
     K_t <- P_t1 %*% transC %*% Inverse(Sigma_t)
-    K_t_array[, , i] <- K_t
-    # Updating the state vector
-    a_tt <- a_t1 + K_t %*% epsilon_t
+    # State vector
+    Z_tt <- Z_t1 + K_t %*% epsilon_t
+    # State vector var-cov matrix
     P_tt <- P_t1 - K_t %*% C %*% P_t1
-    # State vector i
-    a_tt_mat[, i] <- a_tt
-    P_tt_array[, , i] <- P_tt
 
-    # Prediction step (for next period)
-    a_t1 <- C %*% a_tt
+    # Either store the likelihood or the filter output
+    if (outLogLik == TRUE) {
+      # Calculation and storage of log-likelihood
+      lik_t <- dnorm(epsilon_t, sd = sqrt(Sigma_t))
+      logLik_T <- logLik_T - log(lik_t)
+    } else {
+      K_t_array[, , i] <- K_t
+      Z_tt_mat[, i] <- Z_tt
+      P_tt_array[, , i] <- P_tt
+    }
+
+    #-------------------#
+    # Prediction step
+    #-------------------#
+
+    # State vector
+    Z_t1 <- C %*% Z_tt
+    # State vector var-cov matrix
     P_t1 <- C %*% P_tt %*% transC + B
+    
   }
   # Set the output
   if (outLogLik == TRUE) {
     return(logLik_T)
   } else {
     outputList <- list(
-      "a_tt" = a_tt_mat,
+      "Z_tt" = Z_tt_mat,
       "P_tt" = P_tt_array,
       "K_t" = K_t_array
     )
