@@ -18,12 +18,30 @@ phi_pi = 1.5
 phi_x = 0.125
 rho_r = 0.75
 
+N=1000 # number of simulations
+T = 100 # length of samples
+
+# Simulate observed variables output gap x_t and inflation pi_t according to their DSGE formulas
+
+for (i in 1:N){
+  x = rep(0,T) # create vector of sample size T for output gap
+  pi = rep(0,T) # create vector of sample size T for inflation gap
+  r = rep(0,T-1) # interest rate 
+  z = rep(0,T-1) # Aggregate demand disturbance
+  for (i in 1:T){
+     
+    pi[i] = kappa*x[i] + beta*E_t[pi[i+1]] # idk how to implement E_t[pi[i+1]]
+    r[i] = rho_r*r[i-1] + (1-rho_r)*phi_pi*pi[i] + (1-rho_r)*phi_x*x[i]+ sigma_r*epsilon_r[i] # should epsilon_r be N(0,1)?
+    x[i] = E_t[x[i+1]] - sigma*(r[i]-E_t[pi[i+1]]-z[i])
+    z[i] = rho_z*z[i-1]+sigma_z*epsilon_z[i]
+    }
+}
 
 
 
 B=1999 # nr of bootstrap iterations
 y = # original sample to be used in bootstrap of dimension T * n_y, so n_y variables per time point
-T = 100 # observations of y
+
 
 n_z = # number of state space variables
 n_y = 5# number of observed variables
