@@ -142,12 +142,10 @@ KalmanRecursions <- function(data, paramVec, systemList, outLogLik) {
     # Bootstrap algorithm step 1 (note that first innovation is dropped)
     standFactor <- 1 / (nPeriods - 1) * apply(epsilon_mat[,-1], 2, sum)
     epsilonCenter_t <- epsilon_mat - standFactor
-    epsilonCenter_list <- apply(epsilonCenter_t, 1, as.matrix)
-    
     # Check if this really works
     
     e_hat_mat <- apply(Sigma_array^(-.5), c(1, 2), function(x){
-      x %*% epsilonCenter_list[[as.integer(substring(deparse(substitute(x)), 2))]]
+      x %*% epsilonCenter_t[as.integer(substring(deparse(substitute(x)), 2)),]
       })
     e_hat_mat[,1] <- NA
     # Construct the output list

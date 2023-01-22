@@ -10,7 +10,7 @@ GenBootObs <- function(data, filterOutput, dimObs, bootErr) {
   # Construct state vectors
   epsilonCenter_list <- apply(bootErr, 1, as.matrix)
   Z_hat_star_mat <- apply(K_gain, c(1, 2), function(x) {
-    x %*% epsilonCenter_list[[as.integer(substring(deparse(substitute(x)), 2))]]
+    x %*% bootErr[,as.integer(substring(deparse(substitute(x)), 2))]
   })
   Z_hat_star_mat[1, ] <- filterOutput$Z_tt[1, 1]
   # Construct the observation vector
@@ -47,6 +47,8 @@ DistThetastarDiff <- function(data, theta, thetaBootMat){
   # Quantify the bootstrap deviations in the paramter vector
   W_star_mat <- sqrt(nPeriods) * (thetaBootMat - theta)
   # Approximate the empirical distribution
+  
+  # subtract normal
   
 # tbd
   
