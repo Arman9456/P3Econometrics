@@ -5,13 +5,13 @@ using namespace arma;
 // [[Rcpp::depends(RcppArmadillo)]]
 
 //' @description Function that executes the Kalman recursions. Notation as in Angelini et al. (2022).
-//' @param data matrix with the data. One column per observed variable
 //' @param paramVec vector of structural parameters
+//' @param data matrix with the data. One column per observed variable
 //' @param systemList List with system matrices
 //' @param outLogLik boolean. If true, function outputs a likelihood value. Else the filter output
 //' @return constrained parameter vector
 // [[Rcpp::export]]
-List KalmanRecursions(mat data, vec paramVec, List systemList, bool outLogLik)
+List KalmanRecursions(vec paramVec, mat data, List systemList, bool outLogLik)
 {
         // Transition eq
         mat A = systemList["A"];
@@ -33,7 +33,7 @@ List KalmanRecursions(mat data, vec paramVec, List systemList, bool outLogLik)
         mat Z_tt_mat(nPeriods, transDim, fill::zeros);
         cube P_tt_array(transDim, transDim, nPeriods, fill::zeros);
         cube K_t_array(transDim, obsDim, nPeriods, fill::zeros);
-        mat e_hat_mat(nPeriods, obsDim, fill::zeros);
+        mat e_hat_mat(nPeriods, transDim, fill::zeros);
 
         // Initialize the filter routine (diffusely)
         // State vector with zeros
@@ -49,7 +49,7 @@ List KalmanRecursions(mat data, vec paramVec, List systemList, bool outLogLik)
         vec Z_tt;
         mat P_tt;
 
-        // Run the recursions (until nPeriods-1 bc state vector enters measurement eq with lag (eq. 2))
+        //Run the recursions (until nPeriods-1 bc state vector enters measurement eq with lag (eq. 2))
         for (int i = 0; i < nPeriods; i++)
         {
                 //-------------------//
@@ -57,7 +57,7 @@ List KalmanRecursions(mat data, vec paramVec, List systemList, bool outLogLik)
                 //-------------------//
 
                 // One step ahead prediction error
-                epsilon_t = data.row(i).t() - (C * Z_t1);
+                 epsilon_t = data.row(i).t() - C * Z_t1;
                 // One step ahead prediction error
                 Sigma_t = C * P_t1 * transC + D;
                 Sigma_inv_t = inv(Sigma_t);
@@ -79,7 +79,7 @@ List KalmanRecursions(mat data, vec paramVec, List systemList, bool outLogLik)
                 if (outLogLik == true)
                 {
                         // Calculation and storage of the log likelihood
-                       logLik_vec[i] = as_scalar(.5 * log(2 * datum::pi) - .5 * log(abs(det(Sigma_t))) + (-.5 * epsilon_t.t() * Sigma_inv_t * epsilon_t));
+                       logLik_vec[i] = as_scalar(0.5 * log(2 * datum::pi) - .5 * log(abs(det(Sigma_t))) + (-.5 * epsilon_t.t() * Sigma_inv_t * epsilon_t));
                 }
                 else
                 {
@@ -110,7 +110,7 @@ List KalmanRecursions(mat data, vec paramVec, List systemList, bool outLogLik)
                 // Note that first innovation is dropped (eq 13)
                 vec e_hat_0(obsDim);
                 e_hat_0.fill(datum::nan);
-                e_hat_mat.row(0) = e_hat_0.t();
+                e_hat_t.row(0) = e_hat_0.t();
                 // Construct the output list
                 List outputList = List::create(
                     Named("Z_tt") = Z_tt_mat,
@@ -118,5 +118,5 @@ List KalmanRecursions(mat data, vec paramVec, List systemList, bool outLogLik)
                     _["K_t"] = K_t_array,
                     _["e_hat"] = e_hat_mat);
                 return outputList;
-        }
+         }
 }
