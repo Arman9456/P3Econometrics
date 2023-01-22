@@ -81,8 +81,7 @@ KalmanRecursions <- function(data, paramVec, systemList, outLogLik) {
   Z_tt_mat <- matrix(NA, nc = transDim, nr = nPeriods)
   P_tt_array <- array(NA, dim = c(transDim, transDim, nPeriods))
   K_t_array <- array(NA, dim = c(Dimans, transDim, nPeriods))
-  epsilon_mat <- rep(NA, nc = obsDim, nr = nPeriods)
-  Sigma_array <- rep(NA, dim = c(obsDim, obsDim, nPeriods))
+  e_hat_mat <- rep(NA, nc = obsDim, nr = nPeriods)
 
   # Initialize the filter routine (diffusely)
   # State vector with zeros
@@ -101,6 +100,9 @@ KalmanRecursions <- function(data, paramVec, systemList, outLogLik) {
     # One step ahead prediction error
     Sigma_t <- C %*% P_tt %*% transC + D
     Sigma_inv_t <- Inverse(Sigma_t)
+    # standardized prediction errors eq. (13) 
+    # Bootstrap algorithm step 1 (note that first innovation is dropped)
+    e_hat_t <- Sigma_t^(-.5) %*% epsilon_t
     
     #-------------------#
     # Updating step
@@ -121,8 +123,7 @@ KalmanRecursions <- function(data, paramVec, systemList, outLogLik) {
       K_t_array[, , i] <- K_t
       Z_tt_mat[i,] <- Z_tt
       P_tt_array[, , i] <- P_tt
-      epsilon_mat[i,] <- epsilon_t
-      Sigma_array[,,i] <- Sigma_t
+      e_hat_mat[i,] <- e_hat_t
     }
 
     #-------------------#
@@ -138,16 +139,6 @@ KalmanRecursions <- function(data, paramVec, systemList, outLogLik) {
   if (outLogLik == TRUE) {
     return(-sum(logLik_mat))
   } else {
-    # standardized prediction errors eq. (13) 
-    # Bootstrap algorithm step 1 (note that first innovation is dropped)
-    standFactor <- 1 / (nPeriods - 1) * apply(epsilon_mat[,-1], 2, sum)
-    epsilonCenter_t <- epsilon_mat - standFactor
-    # Check if this really works
-    
-    e_hat_mat <- apply(Sigma_array^(-.5), c(1, 2), function(x){
-      x %*% epsilonCenter_t[as.integer(substring(deparse(substitute(x)), 2)),]
-      })
-    e_hat_mat[,1] <- NA
     # Construct the output list
     outputList <- list(
       "Z_tt" = Z_tt_mat,

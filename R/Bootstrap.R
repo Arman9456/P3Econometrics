@@ -25,6 +25,7 @@ GenBootObs <- function(data, filterOutput, dimObs, bootErr) {
 
 #' @description Function that draws a bootstrap sample from the standardized Kalman innovations of size T - 1 where T is the observational period
 #' (Bootstrap algorithm step 2)
+#' @param forecastErr matrix with the standardized one-step ahead forecasting error from the Kalman filter. One row per period
 #' @return matrix with the bootstrapped sample
 
 GenBootErr <- function(forecastErr) {
