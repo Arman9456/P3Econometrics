@@ -68,20 +68,20 @@ KalmanRecursions <- function(data, paramVec, systemList, outLogLik) {
   # Measurement eq
   C <- systemList$C
   transC <- trans(C)
-  D <- systeMList$D
+  D <- systemList$D
 
   # Dimensions
   transDim <- NCOL(A)
   obsDim <- NCOL(data)
   # Number of time periods
-  nPeriods <- length(data)
+  nPeriods <- NROW(data)
 
   # Initialize the output
   logLik_mat <- matrix(0, nc = obsDim, nr = nPeriods)
   Z_tt_mat <- matrix(NA, nc = transDim, nr = nPeriods)
   P_tt_array <- array(NA, dim = c(transDim, transDim, nPeriods))
   K_t_array <- array(NA, dim = c(Dimans, transDim, nPeriods))
-  e_hat_mat <- rep(NA, nc = obsDim, nr = nPeriods)
+  e_hat_mat <- matrix(NA, nc = obsDim, nr = nPeriods)
 
   # Initialize the filter routine (diffusely)
   # State vector with zeros
@@ -96,14 +96,14 @@ KalmanRecursions <- function(data, paramVec, systemList, outLogLik) {
     #-------------------#
 
     # One step ahead prediction error
-    epsilon_t <- data[i + 1, ] - C %*% Z_tt
+    epsilon_t <- data[i + 1, ] - C %*% Z_t1
     # One step ahead prediction error
-    Sigma_t <- C %*% P_tt %*% transC + D
+    Sigma_t <- C %*% P_t1 %*% transC + D
     Sigma_inv_t <- Inverse(Sigma_t)
-    # standardized prediction errors eq. (13) 
-    # Bootstrap algorithm step 1 (note that first innovation is dropped)
+    # standardized prediction errors eq. (13)
+    # Bootstrap algorithm step 1
     e_hat_t <- Sigma_t^(-.5) %*% epsilon_t
-    
+
     #-------------------#
     # Updating step
     #-------------------#
@@ -121,9 +121,9 @@ KalmanRecursions <- function(data, paramVec, systemList, outLogLik) {
       logLik_mat[i, ] <- .5 * log(2 * pi) - .5 * log(abs(det(Sigma_t))) + (-.5 * epsilon %*% Sigma_inv_t %*% epsilon)
     } else {
       K_t_array[, , i] <- K_t
-      Z_tt_mat[i,] <- Z_tt
+      Z_tt_mat[i, ] <- Z_tt
       P_tt_array[, , i] <- P_tt
-      e_hat_mat[i,] <- e_hat_t
+      e_hat_mat[i, ] <- e_hat_t
     }
 
     #-------------------#
@@ -139,6 +139,8 @@ KalmanRecursions <- function(data, paramVec, systemList, outLogLik) {
   if (outLogLik == TRUE) {
     return(-sum(logLik_mat))
   } else {
+    # Note that first innovation is dropped (eq 13)
+    e_hat_t[1, ] <- NA
     # Construct the output list
     outputList <- list(
       "Z_tt" = Z_tt_mat,
@@ -149,4 +151,3 @@ KalmanRecursions <- function(data, paramVec, systemList, outLogLik) {
     return(outputList)
   }
 }
-
