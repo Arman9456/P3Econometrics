@@ -5,8 +5,10 @@ Init <- function() {
   packages <- c("matlib", "expm", "tidyverse")
   sapply(packages, Package_fctn)
   # Source functions
-  Scripts <- paste0("R/", list.files(path = paste0(getwd(), "/R")))
-  sapply(Scripts, source)
+  RScripts <- paste0("R/", list.files(path = paste0(getwd(), "/R")))
+  CScripts <- paste0("src/", list.files(path = paste0(getwd(), "/src")))
+  sapply(RScripts, source)
+  sapply(CScripts, Rcpp::sourceCpp)
 }
 
 #' @description Function that loads required packages or installs them if necessary
