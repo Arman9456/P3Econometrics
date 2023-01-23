@@ -32,7 +32,7 @@ alpha[1] = rnorm(1,mean=0,sd=1)
     alpha[i+1] = alpha[i] + rnorm(1,mean=0,sd=1)
     mu[i+1] = alpha[i+1] + mu[i] + rnorm(1,mean=0,sd=1)
     cyc[i+3] = c1*cyc[i+2] + c2*cyc[i+1] + c3*cyc[i] + rnorm(1,mean=0,sd=1)
-    y[i+1] = mu[i+1] + cyc[i+4] + rnorm(1,mean=0,sd=1)
+    y[i+1] = mu[i+1] + cyc[i+3] + rnorm(1,mean=0,sd=1)
   }
 
 # y values after discarding first 500 observations due to burn-in period
@@ -40,7 +40,7 @@ y = y[(BID+1):BI]
 ymat[,k] = y # for each simulation we get 500 observations
 }
 
-return(ymat)
-}
+ return(ymat)
+ }
 
 #test = GenSamples()
