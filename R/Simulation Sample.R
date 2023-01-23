@@ -6,8 +6,6 @@ c1= 0.1
 c2 = 0.12
 c3 = 0.7
 
-
-
 N = 1000 # number of simulations
 BI = 1000 # number of iterations for burn-in
 BID = 500 # number of observations to discard for burn-in
