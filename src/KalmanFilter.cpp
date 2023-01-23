@@ -49,9 +49,10 @@ List KalmanRecursions(vec paramVec, mat data, List systemList, bool outLogLik)
         vec Z_tt;
         mat P_tt;
 
-        //Run the recursions (until nPeriods-1 bc state vector enters measurement eq with lag (eq. 2))
+        // Run the recursions (until nPeriods-1 bc state vector enters measurement eq with lag (eq. 2))
         for (int i = 0; i < nPeriods; i++)
         {
+
                 //-------------------//
                 // Get innovations
                 //-------------------//
@@ -63,7 +64,7 @@ List KalmanRecursions(vec paramVec, mat data, List systemList, bool outLogLik)
                 Sigma_inv_t = inv(Sigma_t);
                 // standardized prediction errors eq. (13)
                 // Bootstrap algorithm step 1
-                e_hat_t = diagmat(pow(diagvec(Sigma_t), -.5)) * epsilon_t;
+                e_hat_t = real(sqrtmat(inv(Sigma_t))) * epsilon_t;
 
                 //-------------------//
                 // Updating step

@@ -4,7 +4,7 @@
 #' @param outLogLik boolean. If TRUE, the function returns only the log likelihood and no filtered
 #' values. If FALSE, the function returns the filtered state vector
 #' @param constrainParam booelan. If TRUE, a parameter constraining function is applied
-#' @return either the filtered output or the log likelihood
+#' @return either a list of the filtered output or a double of the log likelihood
 
 KalmanFilter <- function(param, data, outLogLik, constrainParam) {
   # Apply parameter constraints if necessary
@@ -15,6 +15,8 @@ KalmanFilter <- function(param, data, outLogLik, constrainParam) {
   Output <- KalmanRecursions(
     paramVec = param, data = data, systemList = systemList, outLogLik = outLogLik
   )
+  # If the function only returns a likelihood value, extract this value from the output list
+  if (outLogLik == TRUE) Output <- Output[[1]]
   return(Output)
 }
 
@@ -52,7 +54,7 @@ GridParamOptim <- function(thetaMat, data) {
     }
   }, nparams = NCOL(thetaMat) + 1) %>%
     t()
-  colnames(optimUnfltrd) <- c("ll", "alpha", "beta")
+  colnames(optimUnfltrd) <- c("ll", "phi_1", "phi_2", "SdEpsilon", "SdEta", "SdU", "SdE")
   # Sort according to the log likelihood values
   optimUnfltrd <- optimUnfltrd[order(-optimUnfltrd[, 1]), ]
   # Discard optimization runs where the routine failed
@@ -83,7 +85,7 @@ ParamOptim <- function(theta, data) {
     if (optimResult$convergence != 0) warning("Convergence of the likelihood maximation likely not archieved \n")
     outputVec <- c(optimResult$value, optimResult$par)
   }
-  names(outputVec) <- c("ll", "alpha", "beta")
+  colnames(optimUnfltrd) <- c("ll", "phi_1", "phi_2", "SdEpsilon", "SdEta", "SdU", "SdE")
   return(outputVec)
 }
 
@@ -95,12 +97,15 @@ ParamOptim <- function(theta, data) {
 
 ParConstrain <- function(paramVec) {
   constrPar <- paramVec
-
-  # tbd
-
+  # Constrain AR parameters of the cycle to result in a stable process
+  phi_1 <- 2 * par[1] / (1 + abs(par[1]))
+  phi_2 <- -(1 - abs(phi_1)) * par[2] / (1 + abs(par[2])) - abs(phi_1)
+  constrPar[6] <- phi_1
+  constrPar[7] <- phi_2
+  # Constrain system St.Devs to be positive
+  constrPar[3:5] <- exp(-paramVec[3:5]) 
   return(constrPar)
 }
-
 
 
 #' @description Function constructs the MODEL SPECIFIC system matrices for the Kalman filter
@@ -109,17 +114,17 @@ ParConstrain <- function(paramVec) {
 #' @return list with the matrices
 
 SystemMat_fctn <- function(paramVec) {
-  # tbd
-  set.seed(2)
+  phi_1 <- paramVec[1]
+  phi_2 <- paramvec[2]
   # Transition eq
-
-  # Just random values to check the filter
-  A <- matrix(rnorm(25), nr = 5)
-  B <- diag(5)
+  A <- rbind(c(1, 1, 0, 0),
+             c(0, 1, 0, 0),
+             c(0, 0, phi_1, phi_2),
+             c(0, 0, 1, 0))
+  B <- rbind(diag(3), rep(0, 3))
   # Measurement eq
-  C <- matrix(rnorm(10), nr = 2, nc = 5)
-  D <- diag(2)
+  C <- matrix(c(1, 0, 1, rep(0, NCOL(A) - 3)), nr = 1)
 
-  outputList <- list("A" = A, "B" = B, "C" = C, "D" = D)
+  outputList <- list("A" = A, "B" = B, "C" = C)
   return(outputList)
 }
