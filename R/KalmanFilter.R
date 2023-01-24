@@ -9,19 +9,15 @@
 KalmanFilter <- function(param, data, outLogLik, constrainParam) {
   # Apply parameter constraints if necessary
   if (constrainParam == TRUE) param <- ParConstrain(paramVec = param)
-  # Set up the filter
-  systemList <- SystemMat_fctn(paramVec = param)
   # Run the recursions
+  if (!is.matrix(data)) data <- matrix(data, nc = 1)
   Output <- KalmanRecursions(
-    paramVec = param, data = data, systemList = systemList, outLogLik = outLogLik
+    paramVec = param, data = data, outLogLik = outLogLik
   )
   # If the function only returns a likelihood value, extract this value from the output list
   if (outLogLik == TRUE) Output <- Output[[1]]
   return(Output)
 }
-
-dataMat <- matrix(rnorm(10), nc = 2)
-paramVec <- rep(1, 4)
 
 
 #' @description Function that finds the ML estimates via numerical optimization with a range of initial parameters
@@ -29,32 +25,32 @@ paramVec <- rep(1, 4)
 #' @param data matrix with the data. One column per observed variable
 #' @return matrix with the log likelihood and ML estimates for every initial parameter vector
 
-thetaMat <- matrix(rnorm(20), nc = 2)
-
 GridParamOptim <- function(thetaMat, data) {
-  resultsOptim <- apply(thetaMat, 1, function(theta, data, systemList) {
-    systemList <- SystemMat_fctn(paramVec = theta)
+  if (!is.matrix(data)) data <- matrix(data, nc = 1)
+  thetaMat <- t(apply(thetaMat, 1, ParConstrain))
+  resultsOptim <- apply(thetaMat, 1, function(theta, data) {
     return(c(
       tryCatch(optim(theta,
         fn = KalmanRecursions, hessian = FALSE, method = "BFGS",
-        control = list(maxit = 100, reltol = 1e-06),
-        data = data, systemList = systemList, outLogLik = TRUE,
+        control = list(maxit = 1e5, reltol = 1e-06),
+        data = data, outLogLik = TRUE,
       ), error = function(e) NA),
       theta
     ))
-  }, data = data, systemList = systemList) %>%
+  }, data = data) %>%
     t()
   # Collect parameters from the list of optim results
   if (!is.list(resultsOptim)) stop("Optimization failed for all initial values\n")
   optimUnfltrd <- sapply(resultsOptim, function(x, nparams) {
     if (is.list(x)) {
-      outputVec <- c(-x$value, x$par)
+      outputVec <- c(-x$value, ParConstrain(x$par))
     } else {
-      oututVec <- rep(NA, nparams)
+      outputVec <- rep(NA, nparams)
     }
   }, nparams = NCOL(thetaMat) + 1) %>%
     t()
-  colnames(optimUnfltrd) <- c("ll", "phi_1", "phi_2", "SdEpsilon", "SdEta", "SdU", "SdE")
+   colnames(optimUnfltrd) <- c("ll", "phi_1", "phi_2", "SdEta", "SdU", "SdE")
+
   # Sort according to the log likelihood values
   optimUnfltrd <- optimUnfltrd[order(-optimUnfltrd[, 1]), ]
   # Discard optimization runs where the routine failed
@@ -67,15 +63,14 @@ GridParamOptim <- function(thetaMat, data) {
 #' @param data matrix with the data. One column per observed variable
 #' @return vector with the log likelihood and ML estimates
 
-theta <- rnorm(2)
-
 ParamOptim <- function(theta, data) {
-  systemList <- SystemMat_fctn(paramVec = theta)
+  theta <- ParConstrain(paramVec = theta)
+  if (!is.matrix(data)) data <- matrix(data, nc = 1)
   optimResult <- c(
     tryCatch(optim(theta,
-      fn = KalmanRecursions, hessian = FALSE, method = "BFGS",
-      control = list(maxit = 100, reltol = 1e-06),
-      data = data, systemList = systemList, outLogLik = TRUE,
+      fn = KalmanRecursions, hessian = FALSE, method = "Nelder-Mead",
+      control = list(maxit = 1e5, reltol = 1e-06),
+      data = data, outLogLik = TRUE,
     ), error = function(e) NA),
     theta
   )
@@ -83,9 +78,10 @@ ParamOptim <- function(theta, data) {
     outputVec <- rep(NA, 1 + length(theta))
   } else {
     if (optimResult$convergence != 0) warning("Convergence of the likelihood maximation likely not archieved \n")
-    outputVec <- c(optimResult$value, optimResult$par)
+    outputVec <- c(optimResult$value, ParConstrain(optimResult$par))
   }
-  colnames(optimUnfltrd) <- c("ll", "phi_1", "phi_2", "SdEpsilon", "SdEta", "SdU", "SdE")
+  names(outputVec) <- c("ll", "phi_1", "phi_2", "SdEta", "SdU", "SdE")
+
   return(outputVec)
 }
 
@@ -98,33 +94,11 @@ ParamOptim <- function(theta, data) {
 ParConstrain <- function(paramVec) {
   constrPar <- paramVec
   # Constrain AR parameters of the cycle to result in a stable process
-  phi_1 <- 2 * par[1] / (1 + abs(par[1]))
-  phi_2 <- -(1 - abs(phi_1)) * par[2] / (1 + abs(par[2])) - abs(phi_1)
-  constrPar[6] <- phi_1
-  constrPar[7] <- phi_2
+  phi_1 <- 2 * paramVec[1] / (1 + abs(paramVec[1]))
+  phi_2 <- -(1 - abs(phi_1)) * paramVec[2] / (1 + abs(paramVec[2])) - abs(phi_1)
+  constrPar[1] <- phi_1
+  constrPar[2] <- phi_2
   # Constrain system St.Devs to be positive
-  constrPar[3:5] <- exp(-paramVec[3:5]) 
+  constrPar[3:5] <- exp(paramVec[3:5])
   return(constrPar)
-}
-
-
-#' @description Function constructs the MODEL SPECIFIC system matrices for the Kalman filter
-#' @param spec character indicating the model specification
-#' @param paramVec vector structural parameters
-#' @return list with the matrices
-
-SystemMat_fctn <- function(paramVec) {
-  phi_1 <- paramVec[1]
-  phi_2 <- paramvec[2]
-  # Transition eq
-  A <- rbind(c(1, 1, 0, 0),
-             c(0, 1, 0, 0),
-             c(0, 0, phi_1, phi_2),
-             c(0, 0, 1, 0))
-  B <- rbind(diag(3), rep(0, 3))
-  # Measurement eq
-  C <- matrix(c(1, 0, 1, rep(0, NCOL(A) - 3)), nr = 1)
-
-  outputList <- list("A" = A, "B" = B, "C" = C)
-  return(outputList)
 }

@@ -4,6 +4,49 @@ using namespace Rcpp;
 using namespace arma;
 // [[Rcpp::depends(RcppArmadillo)]]
 
+
+//' @description Function constructs the MODEL SPECIFIC system matrices for the Kalman filter
+//' @param spec character indicating the model specification
+//' @param paramVec vector structural parameters
+//' @return list with the matrices
+ // [[Rcpp::export]]
+ List SystemMat_fctn(vec paramVec) {
+        double phi_1 = paramVec[0];
+        double phi_2 = paramVec[1];
+        double SdEta = paramVec[3];
+        double SdU = paramVec[4];
+        double SdE = paramVec[5];
+         
+//Transition eq
+mat A(4, 4);
+A << 1 << 1 << 0 << 0 << endr
+  << 0 << 1 << 0 << 0 << endr
+  << 0 << 0 << phi_1 << phi_2 << endr
+  << 0 << 0 << 1 << 0 << endr;
+
+ mat B = join_cols(eye(3, 3), zeros<rowvec>(3));
+
+vec SdVec = {SdEta, 0, SdE};
+mat Q = diagmat(SdVec);
+// Measurement eq
+ mat C(1, 4);
+ C << 1 << 0 << 1 << 0 << endr;
+
+// mat D(1, 1, fill::value(pow(SdEpsilon, 2)));
+mat D(1, 1, fill::zeros);
+
+
+        List outputList = List::create(
+                        Named("A") = A,
+                        _["B"] = B,
+                        _["C"] = C,
+                        _["D"] = D,
+                        _["Q"] = Q);                
+
+        return outputList;
+}
+
+
 //' @description Function that executes the Kalman recursions. Notation as in Angelini et al. (2022).
 //' @param paramVec vector of structural parameters
 //' @param data matrix with the data. One column per observed variable
@@ -11,12 +54,17 @@ using namespace arma;
 //' @param outLogLik boolean. If true, function outputs a likelihood value. Else the filter output
 //' @return constrained parameter vector
 // [[Rcpp::export]]
-List KalmanRecursions(vec paramVec, mat data, List systemList, bool outLogLik)
+List KalmanRecursions(vec paramVec, mat data, bool outLogLik)
 {
+        // Produce system matrices
+      List systemList = SystemMat_fctn(paramVec);
+        
         // Transition eq
         mat A = systemList["A"];
         mat transA = trans(A);
         mat B = systemList["B"];
+        mat Q = systemList["Q"];
+        mat Q_expand = B * Q * trans(B);
         // Measurement eq
         mat C = systemList["C"];
         mat transC = trans(C);
@@ -33,7 +81,7 @@ List KalmanRecursions(vec paramVec, mat data, List systemList, bool outLogLik)
         mat Z_tt_mat(nPeriods, transDim, fill::zeros);
         cube P_tt_array(transDim, transDim, nPeriods, fill::zeros);
         cube K_t_array(transDim, obsDim, nPeriods, fill::zeros);
-        mat e_hat_mat(nPeriods, transDim, fill::zeros);
+        mat e_hat_mat(nPeriods, obsDim, fill::zeros);
 
         // Initialize the filter routine (diffusely)
         // State vector with zeros
@@ -58,7 +106,7 @@ List KalmanRecursions(vec paramVec, mat data, List systemList, bool outLogLik)
                 //-------------------//
 
                 // One step ahead prediction error
-                 epsilon_t = data.row(i).t() - C * Z_t1;
+                epsilon_t = data.row(i).t() - C * Z_t1;
                 // One step ahead prediction error
                 Sigma_t = C * P_t1 * transC + D;
                 Sigma_inv_t = inv(Sigma_t);
@@ -97,7 +145,7 @@ List KalmanRecursions(vec paramVec, mat data, List systemList, bool outLogLik)
                 // State vector
                 Z_t1 = A * Z_tt;
                 // State vector var-cov matrix
-                P_t1 = A * P_tt * transA + B;
+                P_t1 = A * P_tt * transA + Q_expand;
         }
         // Set the output
         if (outLogLik == TRUE)
@@ -111,7 +159,7 @@ List KalmanRecursions(vec paramVec, mat data, List systemList, bool outLogLik)
                 // Note that first innovation is dropped (eq 13)
                 vec e_hat_0(obsDim);
                 e_hat_0.fill(datum::nan);
-                e_hat_t.row(0) = e_hat_0.t();
+                e_hat_mat.row(0) = e_hat_0.t();
                 // Construct the output list
                 List outputList = List::create(
                     Named("Z_tt") = Z_tt_mat,
