@@ -6,6 +6,7 @@
 #' @return matrix with the drawn samples. One column per sample path.
 
 GenSamples <- function() {
+  set.seed(123)
   # Coefficients cycle AR(3) equation & initial values which we choose s.t. the process is stationary
   phi_1 <- 0.1
   phi_2 <- 0.12
@@ -34,7 +35,7 @@ GenSamples <- function() {
     nPeriods <- BI + BID + 3
     y <- rep(0, nPeriods)
     mu <- rep(0, nPeriods)
-    alpha <- rep(0.01, nPeriods)
+    alpha <- rep(0, nPeriods)
     cyc <- rep(0, nPeriods)
     epsilon <- rnorm(nPeriods, sd = SdEpsilon)
     eta <- rnorm(nPeriods, sd = SdEta)
@@ -45,7 +46,7 @@ GenSamples <- function() {
       alpha[i] <- alpha[i - 1] + u[i]
       mu[i] <- alpha[i] + mu[i - 1] + eta[i]
       cyc[i] <- phi_1 * cyc[i - 1] + phi_2 * cyc[i - 2] + phi_3 * cyc[i - 3] + e[i]
-      y[i] <- mu[i] + cyc[i] + epsilon[i] 
+      y[i] <- mu[i] + cyc[i] #+ epsilon[i] 
     }
     # Discard the burn in period
     y_out <- y[-c(1:(3 + BI))]
