@@ -5,37 +5,101 @@ using namespace arma;
 // [[Rcpp::depends(RcppArmadillo)]]
 
 
-//' @description Function constructs the MODEL SPECIFIC system matrices for the Kalman filter
+//' @description Derives the normal density
+//' @param x diagonal mat with the quantile values
+//' @param var diagonal mat with the variances
+//' @returns row vector with the densities
+
+ vec dnormVec_fctn(vec x, mat Var) {
+   int n = x.size();
+   vec dens(n);
+   for(int i = 0; i < n; i++) {
+     dens[i] = R::dnorm4(x[i], 0, sqrt(Var(i,i)), FALSE);
+   }
+   return dens;
+ }
+
+
+//' @description Function that applies parameter constraints
 //' @param spec character indicating the model specification
+//' @param par vector structural parameters
+//' @return constrained parameter vector
+// [[Rcpp::export]]
+vec ParConstrain(vec paramVec, bool dgp1) {
+  vec constrPar = paramVec;
+
+  if (dgp1 == true){
+// Constrain AR parameters of the cycle to result in a stable process
+double phi_1 = 2 * paramVec(0) / (1 + abs(paramVec(0)));
+double phi_2 = -(1 - abs(phi_1)) * paramVec(1) / (1 + abs(paramVec(1))) - abs(phi_1);
+constrPar(0) = phi_1;
+constrPar(1) = phi_2;
+// Constrain system St.Devs to be positive
+constrPar(span(2, 5)) = exp(-paramVec(span(2, 5)));
+  } else {
+    constrPar(0) = exp(-paramVec(0));
+  }
+  return constrPar;
+}
+
+//' @description Function constructs the system matrices for the Kalman filter
 //' @param paramVec vector structural parameters
-//' @return list with the matrices
- // [[Rcpp::export]]
- List SystemMat_fctn(vec paramVec) {
-        double phi_1 = paramVec[0];
-        double phi_2 = paramVec[1];
-        double SdEta = paramVec[3];
-        double SdU = paramVec[4];
-        double SdE = paramVec[5];
-         
-//Transition eq
-mat A(4, 4);
+//' @param constrainParam boolean. If true, the parameter constraining function is applied.
+//' @param dgp1 boolean. If True, the simulation and estimation concern DGP 1. Else DGP 2
+//' @return list with the system matrices
+
+ List SystemMat_fctn(vec paramVec, bool constrainParam, bool dgp1) {
+   vec constrPar;
+   if (constrainParam == true){
+     constrPar = ParConstrain(paramVec, dgp1); 
+   } else {
+     constrPar = paramVec;
+   }
+   int transObs;
+   if (dgp1 == true){
+     transObs = 4;
+   } else {
+     transObs = 2;
+   }
+   
+   vec SdVec;
+   double SdEta;
+   mat A(transObs, transObs);
+   mat B;
+   mat C(1, transObs);
+   mat D(1, 1, fill::zeros); 
+   mat Q;
+   
+   if (dgp1 == true){
+        double phi_1 = constrPar[0];
+        double phi_2 = constrPar[1];
+        SdEta = constrPar[2];
+       double SdU = constrPar[3];
+      double SdE = constrPar[4];
+      double SdEpsilon = constrPar[5];
+// Transition eq
 A << 1 << 1 << 0 << 0 << endr
   << 0 << 1 << 0 << 0 << endr
   << 0 << 0 << phi_1 << phi_2 << endr
   << 0 << 0 << 1 << 0 << endr;
-
- mat B = join_cols(eye(3, 3), zeros<rowvec>(3));
-
-vec SdVec = {SdEta, 0, SdE};
-mat Q = diagmat(SdVec);
+ B = join_cols(eye(3, 3), zeros<rowvec>(3));
+ SdVec = {pow(SdEta, 2), pow(SdU, 2), pow(SdE, 2)};
+Q = diagmat(SdVec);
 // Measurement eq
- mat C(1, 4);
  C << 1 << 0 << 1 << 0 << endr;
-
-// mat D(1, 1, fill::value(pow(SdEpsilon, 2)));
-mat D(1, 1, fill::zeros);
-
-
+ D.col(0).row(0) = pow(SdEpsilon, 2);
+   } else {
+     SdEta = constrPar[0];
+     // Transition eq
+     A << 1 << 1 << endr
+       << 0 << 1 << endr;
+     B << 1 << endr
+       << 0 << endr;
+     SdVec = {pow(SdEta, 2)};
+     Q = diagmat(SdVec);
+     // Measurement eq
+     C << 1 << 0 << endr;
+   }
         List outputList = List::create(
                         Named("A") = A,
                         _["B"] = B,
@@ -50,14 +114,15 @@ mat D(1, 1, fill::zeros);
 //' @description Function that executes the Kalman recursions. Notation as in Angelini et al. (2022).
 //' @param paramVec vector of structural parameters
 //' @param data matrix with the data. One column per observed variable
-//' @param systemList List with system matrices
 //' @param outLogLik boolean. If true, function outputs a likelihood value. Else the filter output
+//' @param constrainParam boolean. If true, the parameter constraining function is applied.
+//' @param dgp1 boolean. If True, the simulation and estimation concern DGP 1. Else DGP 2
 //' @return constrained parameter vector
 // [[Rcpp::export]]
-List KalmanRecursions(vec paramVec, mat data, bool outLogLik)
+List KalmanRecursions(vec paramVec, mat data, bool outLogLik, bool constrainParam, bool dgp1)
 {
         // Produce system matrices
-      List systemList = SystemMat_fctn(paramVec);
+      List systemList = SystemMat_fctn(paramVec, constrainParam, dgp1);
         
         // Transition eq
         mat A = systemList["A"];
@@ -112,7 +177,7 @@ List KalmanRecursions(vec paramVec, mat data, bool outLogLik)
                 Sigma_inv_t = inv(Sigma_t);
                 // standardized prediction errors eq. (13)
                 // Bootstrap algorithm step 1
-                e_hat_t = real(sqrtmat(inv(Sigma_t))) * epsilon_t;
+                e_hat_t = real(sqrtmat(Sigma_inv_t)) * epsilon_t;
 
                 //-------------------//
                 // Updating step
@@ -128,9 +193,7 @@ List KalmanRecursions(vec paramVec, mat data, bool outLogLik)
                 if (outLogLik == true)
                 {
                         // Calculation and storage of the log likelihood
-                        
-                        // CHeck
-                       logLik_vec[i] = as_scalar(0.5 * log(2 * datum::pi) - .5 * log(abs(det(Sigma_t))) + (-.5 * epsilon_t.t() * Sigma_inv_t * epsilon_t));
+                       logLik_vec[i] = -log(as_scalar(dnormVec_fctn(epsilon_t, Sigma_t)));
                 }
                 else
                 {
@@ -152,7 +215,7 @@ List KalmanRecursions(vec paramVec, mat data, bool outLogLik)
         // Set the output
         if (outLogLik == TRUE)
         {
-                double logLik = -sum(logLik_vec);
+                double logLik = sum(logLik_vec);
                 List logLikList = List::create(logLik);
                 return logLikList;
         }
@@ -167,7 +230,8 @@ List KalmanRecursions(vec paramVec, mat data, bool outLogLik)
                     Named("Z_tt") = Z_tt_mat,
                     _["P_tt"] = P_tt_array,
                     _["K_t"] = K_t_array,
-                    _["e_hat"] = e_hat_mat);
+                    _["e_hat"] = e_hat_mat,
+                    _["DGP1"] = dgp1);
                 return outputList;
          }
 }

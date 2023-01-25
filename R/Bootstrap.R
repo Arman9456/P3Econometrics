@@ -3,14 +3,16 @@
 #' @param data matrix with the data. One column per observed variable
 #' @param filterOutput output from the KalmanFilter function
 #' @param theta non bootstrap maximum likelihood parameter vector
+#' @param CDFsupport numerical vector. Values for which the CDF is evaluated
 #' @return the test statistic d for each element of the parameter vector
 
-BootstrapRoutine <- function(B, data, filterOutput, theta){
+BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport){
   nPeriods <- NROW(data)
+  dgp1 <- filterOutput$DGP1
   # Compute the bootstrap ML estimates
   theta_star_matRaw <- sapply(1:B, function(x){
     y_star <- GenBootObs(data, filterOutput)
-    theta_star <- ParamOptim(theta = rep(0, 5), data = y_star)[-1]
+    theta_star <- ParamOptim(theta = theta, data = y_star, dgp1 = dgp1)[-1]
   }) %>%
     t()
   theta_star <- theta_star_matRaw[!is.na(theta_star_matRaw[,1]),]
@@ -18,7 +20,7 @@ BootstrapRoutine <- function(B, data, filterOutput, theta){
   while (NROW(theta_star) < B){
     theta_star_matRaw <- sapply(1:(B/3), function(x){
       y_star <- GenBootObs(data, filterOutput)
-      theta_star <- ParamOptim(theta = rep(0, 5), data = y_star)[-1]
+      theta_star <- ParamOptim(theta = theta, data = y_star, dgp1 = dgp1)[-1]
     }) %>%
       t()
     theta_star <- rbind(theta_star, theta_star_matRaw[!is.na(theta_star_matRaw[,1]),])
@@ -27,31 +29,24 @@ BootstrapRoutine <- function(B, data, filterOutput, theta){
   # Compute the distance to the non bootstrap theta
   W_T_star <- sqrt(nPeriods) * (theta_star - theta)
   # Approximate the EDF G_star with support from -5 to 5 (range is arbitrary. Still tbd)
-  xSeq <- seq(-10, 10, .01)
-  G_starRaw <- apply(W_T_star, 2, function(W, xSeq){
-   G_star <- sapply(xSeq, function(x, W_star){
+  G_starRaw <- apply(W_T_star, 2, function(W, CDFsupport){
+   G_star <- sapply(CDFsupport, function(x, W_star){
      # eq (17)
       value <- length(which(W_star <= x)) / length(W_star)
       return(c(x, value))
     }, W_star = W)
    return(t(G_star))
-  }, xSeq = xSeq)
+  }, CDFsupport = CDFsupport)
   # Bring the matrix into a proper format (first column is x, the remaining columns are the function values)
-  G_star <- cbind(xSeq, G_starRaw[-c(1:length(xSeq)),])
-  # plot(G_star[,6] ~ G_star[,1], type = "l")
-  
-  # Everything after here is inefficient to compute for every bootstrap iteration individually.
-  # Better to end function here, compute the rest once and apply to all monte carlo sample draws
-  
+  G_star <- cbind(CDFsupport, G_starRaw[-c(1:length(CDFsupport)),])
   # Pull the values of the standard normal CDF
-  cdfNorm <- pnorm(xSeq)
+  cdfNorm <- pnorm(CDFsupport)
   # eq (23)
   V_hat <- cdfNorm * (1 - cdfNorm)
   d_mat <- apply(G_star[,-1], 2, function(x){
     d <- sqrt(B) * V_hat^(-.5) * (x - cdfNorm)
   })
-  d_output <- cbind(xSeq, d_mat)
-  #plot(d_mat[, 3], type = "l")
+  d_output <- cbind(CDFsupport, d_mat)
   return(d_output)
 }
 
