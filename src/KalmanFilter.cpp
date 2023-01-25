@@ -128,6 +128,8 @@ List KalmanRecursions(vec paramVec, mat data, bool outLogLik)
                 if (outLogLik == true)
                 {
                         // Calculation and storage of the log likelihood
+                        
+                        // CHeck
                        logLik_vec[i] = as_scalar(0.5 * log(2 * datum::pi) - .5 * log(abs(det(Sigma_t))) + (-.5 * epsilon_t.t() * Sigma_inv_t * epsilon_t));
                 }
                 else

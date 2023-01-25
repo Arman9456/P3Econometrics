@@ -29,14 +29,16 @@ GridParamOptim <- function(thetaMat, data) {
   if (!is.matrix(data)) data <- matrix(data, nc = 1)
   thetaMat <- t(apply(thetaMat, 1, ParConstrain))
   resultsOptim <- apply(thetaMat, 1, function(theta, data) {
-    return(c(
-      tryCatch(optim(theta,
-        fn = KalmanRecursions, hessian = FALSE, method = "BFGS",
+    #return(c(
+     # tryCatch(
+        optim(theta,
+        fn = KalmanRecursions, hessian = FALSE, method = "Nelder-Mead",
         control = list(maxit = 1e5, reltol = 1e-06),
         data = data, outLogLik = TRUE,
-      ), error = function(e) NA),
-      theta
-    ))
+      )
+      #, error = function(e) NA),
+     # theta
+  #  ))
   }, data = data) %>%
     t()
   # Collect parameters from the list of optim results
