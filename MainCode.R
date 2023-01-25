@@ -1,4 +1,6 @@
 # Main code#
+rm(list = ls())
+
 source("R/Init.R")
 Init()
 
@@ -22,7 +24,7 @@ Output <- GridParamOptim(thetaMat = thetaMat, data = dataMat)
 
 # Issue with parameter identification
 
-filterOutput <- KalmanFilter(param = Output[1,-1], data = , outLogLik = F, constrainParam = F)
+filterOutput <- KalmanFilter(param = Output[1,-1], data = dataMat , outLogLik = F, constrainParam = F)
 
 
 plot(filterOutput$Z_tt[, 1], type = "l")
