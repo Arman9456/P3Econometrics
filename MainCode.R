@@ -1,4 +1,6 @@
 # Main code#
+rm(list = ls())
+
 source("R/Init.R")
 Init()
 
