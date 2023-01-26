@@ -89,6 +89,7 @@ GenBootObs <- function(data, filterOutput) {
 #' @return matrix with the bootstrapped sample
 
 GenBootErr <- function(forecastErr) {
+  set.seed(123)
   nBoot <- NROW(forecastErr) - 1
   e_star_mat <- apply(forecastErr, MARGIN = 2, sample, size = nBoot, replace = TRUE)
   return(e_star_mat)

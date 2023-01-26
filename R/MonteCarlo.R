@@ -94,20 +94,20 @@ GenSamples <- function(N, BID, dgp1) {
   # Specify the parameters
   phi_1 <- 0.1
   phi_2 <- 0.12
-  phi_3 <- 0
   SdEta <- 1
   SdU <- .01
   SdE <- .5
   SdEpsilon <- .05
-  paramVec <- c(phi_1, phi_2, phi_3, SdEpsilon, SdEta, SdU, SdE)
+  paramVec <- c(phi_1, phi_2, SdEpsilon, SdEta, SdU, SdE)
+  BI <- 500
   # Generate the samples
   ymat <- sapply(1:N, function(x, BI, BID, paramVec) {
     phi_1 <- paramVec[1]
     phi_2 <- paramVec[2]
-    SdEpsilon <- paramVec[4]
-    SdEta <- paramVec[5]
-    SdU <- paramVec[6]
-    SdE <- paramVec[7]
+    SdEpsilon <- paramVec[3]
+    SdEta <- paramVec[4]
+    SdU <- paramVec[5]
+    SdE <- paramVec[6]
     # Create vectors
     nPeriods <- BI + BID + 3
     y <- rep(0, nPeriods)
@@ -128,7 +128,7 @@ GenSamples <- function(N, BID, dgp1) {
       }
     } else {
       for (i in 4:nPeriods) {
-        y[i] <- .01 + y[i - 1] + eta[i]
+        y[i] <- eta[i] #.01 + y[i - 1] + 
       }
     }
     # Discard the burn in period

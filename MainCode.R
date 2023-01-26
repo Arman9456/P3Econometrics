@@ -5,31 +5,36 @@ source("R/Init.R")
 Init()
 
 # Test the filter
-yRandom <- GenSamples(dgp1 = TRUE)
+yRandom <- GenSamples(dgp1 = F, N = 1, BID = 200)
 dataMat <- as.matrix(yRandom[, 1])
 
 KalmanFilter(param = c(1), data = dataMat, outLogLik = T, constrainParam = T, dgp1 = F)
 
 # Test the parameter optimization
-ParamOptim(theta = rep(0, 6), data = dataMat, dgp1 = TRUE)
+ParamOptim(theta = rep(0, 1), data = dataMat, dgp1 = FALSE)
 # Test the paramter grid search
 N <- 10
 thetaMat <- matrix(c(runif(N, 0, 1),
   runif(N, 0, 1),
-  -log(runif(N, .5, 2)), # eta
-  -log(runif(N, 0, .1)), # u
-  -log(runif(N, 0, 1)), # e
-  -log(runif(N, 0, 1.5))), # epsilon
+  log(runif(N, .5, 2)), # eta
+  log(runif(N, 0, .1)), # u
+  log(runif(N, 0, 1)), # e
+  log(runif(N, 0, 1.5))), # epsilon
   nr = N)
 
-Output <- GridParamOptim(thetaMat = thetaMat, data = dataMat, dgp1 = TRUE)
-Output
+thetaMat <- matrix(c(log(runif(N, .5, 2))), # eta
+                   nr = N)
 
-filterOutput <- KalmanFilter(param = Output[1, -1], data = dataMat, outLogLik = F, constrainParam = T, dgp1 = T)
+Output <- GridParamOptim(thetaMat = thetaMat, data = dataMat, dgp1 = F)
+apply(as.matrix(Output[, -1]), 1, ParConstrain, dgp1 = F) %>% t()
+
+filterOutput <- KalmanFilter(param = Output[1, -1], data = dataMat, outLogLik = F, constrainParam = T, dgp1 = F)
 
 plot(filterOutput$Z_tt[, 1] + filterOutput$Z_tt[, 3], type = "l")
+plot(filterOutput$Z_tt[, 1], type = "l")
 lines(dataMat, col = "red")
 
+filterOutput$Z_tt[, 2]
 # Test the bootstrap
 y_star <- GenBootObs(data = dataMat, filterOutput = filterOutput)
 
