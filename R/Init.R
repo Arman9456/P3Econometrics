@@ -2,7 +2,7 @@
 
 Init <- function() {
   # Load packages
-  packages <- c("tidyverse", "Rcpp", "RcppArmadillo")
+  packages <- c("tidyverse", "Rcpp", "RcppArmadillo", "numDeriv")
   sapply(packages, Package_fctn)
   # Source functions
   RScripts <- paste0("R/", list.files(path = paste0(getwd(), "/R")))

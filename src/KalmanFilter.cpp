@@ -35,9 +35,9 @@ double phi_2 = -(1 - abs(phi_1)) * paramVec(1) / (1 + abs(paramVec(1))) - abs(ph
 constrPar(0) = phi_1;
 constrPar(1) = phi_2;
 // Constrain system St.Devs to be positive
-constrPar(span(2, 5)) = exp(-paramVec(span(2, 5)));
+constrPar(span(2, 5)) = exp(paramVec(span(2, 5)));
   } else {
-    constrPar(0) = exp(-paramVec(0));
+    constrPar(0) = exp(paramVec(0));
   }
   return constrPar;
 }
@@ -47,7 +47,7 @@ constrPar(span(2, 5)) = exp(-paramVec(span(2, 5)));
 //' @param constrainParam boolean. If true, the parameter constraining function is applied.
 //' @param dgp1 boolean. If True, the simulation and estimation concern DGP 1. Else DGP 2
 //' @return list with the system matrices
-
+ // [[Rcpp::export]]
  List SystemMat_fctn(vec paramVec, bool constrainParam, bool dgp1) {
    vec constrPar;
    if (constrainParam == true){

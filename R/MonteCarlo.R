@@ -7,16 +7,25 @@
 #' (one per estimated structural parameter)
 
 RunMonteCarlo <- function(nSim, nPeriods, nBoot, dgp1) {
-  nParam <- ifelse(dgp1 == TRUE, 6, 1)
   yRandom <- GenSamples(N = nSim, BID = nPeriods, dgp1 = dgp1)
   xSeq <- seq(-10, 10, .01)
   monteCarloOutput <- apply(yRandom, 2, MonteCarloRoutine, nBoot = nBoot, dgp1 = dgp1, CDFsupport = xSeq)
+  browser()
   # Bring the output into a proper form
-  nMatrices <- NCOL(monteCarloOutput)
-  nWideCols <- nMatrices * (nParam + 1)
-  nRows <- length(xSeq)
-  matWide <- matrix(monteCarloOutput, nr = nRows, nc = nWideCols)
-  Output <- array(c(matWide), dim = c(nRows, (nParam + 1), nMatrices))
+  # theta mean
+  thetaMeanVec <- apply(sapply(monteCarloOutput, function(x) x$theta), 1, mean)
+  # theta se
+  thetaSeVec <- apply(sapply(monteCarloOutput, function(x) x$thetaSE), 1, mean)
+  # median theta CI length
+  thetaCIlength <- apply(sapply(monteCarloOutput, function(x) x$thetaCIlength), 1, median)
+  # median theta CI length
+  thetaCI <- matrix(apply(sapply(monteCarloOutput, function(x) x$thetaCI), 1, median), nr = 2)
+  colnames(thetaCI) <- names(thetaMeanVec)
+  # theta star mean
+  thetaStarMeanVec <- apply(sapply(monteCarloOutput, function(x) x$theta_star), 1, mean)
+  monteCarloOutput[[2]][[2]]
+  
+  
   return(Output)
 }
 
@@ -37,10 +46,10 @@ MonteCarloRoutine <- function(dataVec, nBoot, dgp1, CDFsupport) {
       c(
         runif(nGrid, 0, 1), # phi_1
         runif(nGrid, 0, 1), # phi_2
-        -log(runif(nGrid, .5, 2)), # eta
-        -log(runif(nGrid, 0, .1)), # u
-        -log(runif(nGrid, 0, 1)), # e
-        -log(runif(nGrid, 0, 1.5)) # epsilon
+        log(runif(nGrid, .5, 2)), # eta
+        log(runif(nGrid, 0, .1)), # u
+        log(runif(nGrid, 0, 1)), # e
+        log(runif(nGrid, 0, 1.5)) # epsilon
       ),
       nr = nGrid
     )
@@ -51,9 +60,26 @@ MonteCarloRoutine <- function(dataVec, nBoot, dgp1, CDFsupport) {
   }
   Output <- GridParamOptim(thetaMat = thetaMat, data = dataMat, dgp1 = dgp1)
   theta <- Output[1, -1]
+  # Calculate the Hessian matrix for the best fitting parameter vector
+  Hessian <- optimHess(theta, KalmanRecursions, data = dataMat, outLogLik = TRUE, constrainParam = TRUE, dgp1 = dgp1)
+  thetaSE <- SEfctn(theta = theta, hessianMat = Hessian, dgp1 = dgp1)
+  # Calculate the 90% CI for theta
+  thetaCIlength <- (1.64 * thetaSE) * 2
+  thetaCImat <- rbind(thetaCIlength / 2 + theta,
+                      thetaCIlength / 2 - theta)
+  # Get the filter output
   filterOutput <- KalmanFilter(param = theta, data = dataMat, outLogLik = F, constrainParam = T, dgp1 = dgp1)
-  d_mat <- BootstrapRoutine(B = nBoot, data = dataMat, filterOutput = filterOutput, theta = theta, CDFsupport = CDFsupport)
-  return(d_mat)
+  bootstrapOutput <- BootstrapRoutine(B = nBoot, data = dataMat, filterOutput = filterOutput, theta = theta, CDFsupport = CDFsupport)
+  # Construct the output list
+  outputList <- list(
+    "d_mat" = bootstrapOutput$d_statistic,
+    "theta" = theta,
+    "thetaSE" = thetaSE,
+    "thetaCIlength" = thetaCIlength,
+    "thetaCI" = thetaCImat,
+    "theta_star" = bootstrapOutput$theta_star
+  )
+  return(outputList)
 }
 
 

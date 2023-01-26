@@ -8,6 +8,8 @@ Init()
 yRandom <- GenSamples(dgp1 = TRUE)
 dataMat <- as.matrix(yRandom[, 1])
 
+KalmanFilter(param = c(1), data = dataMat, outLogLik = T, constrainParam = T, dgp1 = F)
+
 # Test the parameter optimization
 ParamOptim(theta = rep(0, 6), data = dataMat, dgp1 = TRUE)
 # Test the paramter grid search
@@ -34,5 +36,5 @@ y_star <- GenBootObs(data = dataMat, filterOutput = filterOutput)
 d_mat <- BootstrapRoutine(B = 5, data = dataMat, filterOutput = filterOutput, theta = Output[1,-1])
 plot(d_mat[,2] ~ d_mat[,1], type = "l")
 
-iterationOutput <- MonteCarloRoutine(dataVec = yRandom[, 1], nBoot = 10, dgp1 = T)
-MonteCarloOutput <- RunMonteCarlo(nSim = 10, nPeriods = 500, nBoot = 10, dgp1 = T)
+iterationOutput <- MonteCarloRoutine(dataVec = yRandom[, 1], nBoot = 10, dgp1 = T, CDFsupport = seq(-10, 10, .01))
+MonteCarloOutput <- RunMonteCarlo(nSim = 5, nPeriods = 100, nBoot = 10, dgp1 = F)

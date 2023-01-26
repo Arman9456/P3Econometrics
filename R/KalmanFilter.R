@@ -12,10 +12,10 @@ KalmanFilter <- function(param, data, outLogLik, constrainParam, dgp1) {
   if (!is.matrix(data)) data <- matrix(data, nc = 1)
   Output <- KalmanRecursions(
     paramVec = param, data = data, outLogLik = outLogLik, constrainParam = constrainParam,
-    dgp1 = TRUE
+    dgp1 = dgp1
   )
   # If the function only returns a likelihood value, extract this value from the output list
-  if (outLogLik == TRUE) Output <- Output[[1]]
+  #if (outLogLik == TRUE) Output <- Output[[1]]
   return(Output)
 }
 
@@ -24,7 +24,7 @@ KalmanFilter <- function(param, data, outLogLik, constrainParam, dgp1) {
 #' @param thetaMat Matrix with different initial values. One set of values per row
 #' @param data matrix with the data. One column per observed variable
 #' @param dgp1 boolean. If True, the simulation and estimation concern DGP 1. Else DGP 2
-#' @return matrix with the log likelihood and ML estimates for every initial parameter vector
+#' @return matrix with the log likelihood and ML estimates for every initial parameter vector (still constrained parameters)
 
 GridParamOptim <- function(thetaMat, data, dgp1) {
   if (!is.matrix(data)) data <- matrix(data, nc = 1)
@@ -46,7 +46,7 @@ GridParamOptim <- function(thetaMat, data, dgp1) {
   if (!is.list(resultsOptim)) stop("Optimization failed for all initial values\n")
   optimUnfltrd <- sapply(resultsOptim, function(x, nparams) {
     if (is.list(x)) {
-      outputVec <- c(-x$value, ParConstrain(x$par, dgp1 = dgp1))
+      outputVec <- c(-x$value, x$par)
     } else {
       outputVec <- rep(NA, nparams)
     }
@@ -92,4 +92,50 @@ ParamOptim <- function(theta, data, dgp1) {
     names(outputVec) <- c("ll", "SdEta")
   }
   return(outputVec)
+}
+
+
+#' @description Function that computes SE based on the Hessian matrix corrected for the optimization parameter
+#' constraining function
+#' @param theta vector of ML estimates
+#' @param hessianMat Hessian of theta
+#' @param dgp1 boolean. If True, the simulation and estimation concern DGP 1. Else DGP 2
+#' @return Vector of the estimated standard errors
+
+SEfctn <- function(theta, hessianMat, dgp1) {
+  correctionMat <- InvParConstrain_fctn(paramVec = theta, dgp1 = dgp1)
+  CovMat <- correctionMat %*% Inverse(hessianMat) %*% Transp(correctionMat)
+  SEVec <- sqrt(diag(CovMat))
+  names(SEVec) <- names(theta)
+  return(SEVec)
+}
+
+
+
+#' @description Function that reverses the ParConstrain_fctn to correct for the SE calculation
+#' @param paramVec vector of constrained parameters
+#' @param dgp1 boolean. If True, the simulation and estimation concern DGP 1. Else DGP 2
+#' @return a diagonal matrix with the correction factors
+
+InvParConstrain_fctn <- function(paramVec, dgp1) {
+  correctionVec <- rep(1, length(paramVec))
+  if (dgp1 == TRUE) {
+    correctionVec[1] <- numDeriv::jacobian(function(x) {
+      2 * x / (1 + abs(x))
+    }, x = paramVec[1])
+    correctionVec[2] <- numDeriv::jacobian(function(x) {
+      phi_1 <- x[1]
+      phi_2 <- x[2]
+      -sum(
+        ((1 - abs(2 * phi_1 / (1 + abs(phi_1)))) * phi_2) / (1 + abs(phi_2)),
+        2 * phi_1 / (1 + phi_1)
+      )
+    }, x = c(paramVec[1] / 2, paramVec[2]))
+    correctionVec[3:6] <- diag(numDeriv::jacobian(exp, paramVec[3:6]))
+    correctionMat <- diag(correctionVec)
+  } else {
+    correctionVec[1] <- diag(numDeriv::jacobian(exp, paramVec[1]))
+    correctionMat <- matrix(correctionVec)
+  }
+  return(correctionMat)
 }

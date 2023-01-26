@@ -7,6 +7,9 @@
 #' @return the test statistic d for each element of the parameter vector
 
 BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport){
+  # To prevent errors
+  B <- max(B, 3)
+  # Get some parameters
   nPeriods <- NROW(data)
   dgp1 <- filterOutput$DGP1
   # Compute the bootstrap ML estimates
@@ -15,20 +18,33 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport){
     theta_star <- ParamOptim(theta = theta, data = y_star, dgp1 = dgp1)[-1]
   }) %>%
     t()
+  # In case the matrix is transposes when only one parameter is estimates
+  if (NROW(theta_star_matRaw) == 1) theta_star_matRaw <- t(theta_star_matRaw) 
   theta_star <- theta_star_matRaw[!is.na(theta_star_matRaw[,1]),]
+  if (NCOL(theta_star_matRaw) == 1) theta_star <- as.matrix(theta_star) 
+  nColResults <- NROW(theta_star)
+  
   # In case the optimization failed somewhere
-  while (NROW(theta_star) < B){
+  while (nColResults < B){
     theta_star_matRaw <- sapply(1:(B/3), function(x){
       y_star <- GenBootObs(data, filterOutput)
       theta_star <- ParamOptim(theta = theta, data = y_star, dgp1 = dgp1)[-1]
     }) %>%
       t()
-    theta_star <- rbind(theta_star, theta_star_matRaw[!is.na(theta_star_matRaw[,1]),])
+    # In case the matrix is transposes when only one parameter is estimates
+    if (NROW(theta_star_matRaw) == 1) theta_star_matRaw <- t(theta_star_matRaw)
+    theta_star_sub <- theta_star_matRaw[!is.na(theta_star_matRaw[,1]),]
+    if (NCOL(theta_star_matRaw) == 1) theta_star_sub <- as.matrix(theta_star_sub) 
+    theta_star <- rbind(theta_star, theta_star_sub)
+    nColResults <- NROW(theta_star)
   }
-  theta_star <- theta_star[1:B,]
+  theta_star <- as.matrix(theta_star[1:B,])
+  theta_star_mean <- apply(theta_star, 2, mean)
+  
   # Compute the distance to the non bootstrap theta
   W_T_star <- sqrt(nPeriods) * (theta_star - theta)
-  # Approximate the EDF G_star with support from -5 to 5 (range is arbitrary. Still tbd)
+  browser()
+  
   G_starRaw <- apply(W_T_star, 2, function(W, CDFsupport){
    G_star <- sapply(CDFsupport, function(x, W_star){
      # eq (17)
@@ -47,7 +63,7 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport){
     d <- sqrt(B) * V_hat^(-.5) * (x - cdfNorm)
   })
   d_output <- cbind(CDFsupport, d_mat)
-  return(d_output)
+  return(list("d_statistic" = d_output, "theta_star" = theta_star_mean))
 }
 
 
