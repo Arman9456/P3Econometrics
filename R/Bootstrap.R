@@ -79,16 +79,12 @@ GenBootObs <- function(data, filterOutput) {
   C <- filterOutput$C_theta
   Z_hat_star <- filterOutput$Z_tt
   Sigma_sqrt <- filterOutput$Sigma_sqrt
-  
-  e_hat_stand <- rep(NA, NROW(e_hat_star))
-  for (i in 1:length(e_hat_stand)){
-    Sigma_sqrt_mat <- Sigma_sqrt[,,i]
-    e_hat_val <- e_hat_star[i,]
-    e_hat_stand[i] <- c(Sigma_sqrt_mat * e_hat_star[i,])
-  }
-  
-  browser()
-  
+   e_hat_stand <- rep(0, NROW(e_hat_star))
+  # for (i in 1:length(e_hat_stand)){
+  #   Sigma_sqrt_mat <- Sigma_sqrt[,,i]
+  #   e_hat_val <- e_hat_star[i,]
+  #   e_hat_stand[i] <- c(Sigma_sqrt_mat * e_hat_star[i,])
+  # }
   # Construct the observation vector
   y_star_mat <- apply(Z_hat_star, 1, function(x) C %*% as.matrix(x))[-1] + e_hat_stand
   y_star_final <- rbind(data[1, ], as.matrix(y_star_mat))

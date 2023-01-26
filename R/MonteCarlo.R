@@ -10,21 +10,61 @@ RunMonteCarlo <- function(nSim, nPeriods, nBoot, dgp1) {
   yRandom <- GenSamples(N = nSim, BID = nPeriods, dgp1 = dgp1)
   xSeq <- seq(-25, 25, .01)
   monteCarloOutput <- apply(yRandom, 2, MonteCarloRoutine, nBoot = nBoot, dgp1 = dgp1, CDFsupport = xSeq)
-  browser()
   # Bring the output into a proper form
   # theta mean
-  thetaMeanMat <- sapply(monteCarloOutput, function(x) x$theta)
-  thetaMeanMat <- matrix(thetaMeanMat, nr = 1)
-  thetaMeanVec <- apply(thetaMeanMat, 1, mean)
+  # thetaMeanMat <- sapply(monteCarloOutput, function(x) x$theta)
+  # thetaMeanMat <- matrix(thetaMeanMat, nr = 1)
+  # thetaMeanVec <- apply(thetaMeanMat, 1, mean)
   # theta se
-  thetaSeVec <- apply(sapply(monteCarloOutput, function(x) x$thetaSE), 1, mean)
+  # thetaSeVec <- apply(sapply(monteCarloOutput, function(x) x$thetaSE), 1, mean)
   # median theta CI length
-  thetaCIlength <- apply(sapply(monteCarloOutput, function(x) x$thetaCIlength), 1, median)
+  # thetaCIlength <- apply(sapply(monteCarloOutput, function(x) x$thetaCIlength), 1, median)
   # median theta CI length
-  thetaCI <- matrix(apply(sapply(monteCarloOutput, function(x) x$thetaCI), 1, median), nr = 2)
-  colnames(thetaCI) <- names(thetaMeanVec)
+  # thetaCI <- matrix(apply(sapply(monteCarloOutput, function(x) x$thetaCI), 1, median), nr = 2)
+  # colnames(thetaCI) <- names(thetaMeanVec)
   # theta star mean
-  thetaStarMeanVec <- apply(sapply(monteCarloOutput, function(x) x$theta_star), 1, mean)
+  # thetaStarMeanVec <- apply(sapply(monteCarloOutput, function(x) x$theta_star), 1, mean)
+
+  browser()
+  # Doornik Hansen test
+  DHtestVec <- sapply(monteCarloOutput, function(x) {
+    d_df <- as.data.frame(x$d_mat[, -1])
+    testResult <- DH.test(d_df, Y.names = NULL)
+    pValue <- testResult$multi[, 3]
+    rejection <- ifelse(pValue <= .05, 0, 1)
+    return(rejection)
+  })
+  DHfrequency <- mean(DHtestVec)
+  # Jarque-Bera test
+  JBtestMat <- sapply(monteCarloOutput, function(x) {
+    d_mat <- x$d_mat
+    rejectionVec <- apply(d_mat, 2, function(dVec) {
+      pValue <- jarque.bera.test(dVec)$p.value
+      rejection <- ifelse(pValue <= .05, 0, 1)
+      return(rejection)
+    })
+    return(rejectionVec)
+  })
+  JBfrequency <- apply(JBtestMat, 2, mean)
+  # Shapiro-Wilk
+  SWtestMat <- sapply(monteCarloOutput, function(x) {
+    d_mat <- x$d_mat
+    rejectionVec <- apply(d_mat, 2, function(dVec) {
+      pValue <- shapiro.test(dVec)$p.value
+      rejection <- ifelse(pValue <= .05, 0, 1)
+      return(rejection)
+    })
+    return(rejectionVec)
+  })
+  SWfrequency <- apply(SWtestMat, 2, mean)
+
+
+  # Construct the output
+  Output <- list(
+    "DHfrequency" = DHfrequency,
+    "JBfrequency" = JBfrequency,
+    "SWfrequency" = SWfrequency
+  )
 
   return(Output)
 }
@@ -66,11 +106,15 @@ MonteCarloRoutine <- function(dataVec, nBoot, dgp1, CDFsupport) {
   thetaSE <- SEfctn(theta = thetaConst, hessianMat = Hessian, dgp1 = dgp1)
   # Calculate the 90% CI for theta
   thetaCIlength <- (1.64 * thetaSE) * 2
-  thetaCImat <- rbind(thetaCIlength / 2 + theta,
-                      thetaCIlength / 2 - theta)
+  thetaCImat <- rbind(
+    thetaCIlength / 2 + theta,
+    thetaCIlength / 2 - theta
+  )
   # Get the filter output
   filterOutput <- KalmanFilter(param = thetaConst, data = dataMat, outLogLik = F, constrainParam = T, dgp1 = dgp1)
   bootstrapOutput <- BootstrapRoutine(B = nBoot, data = dataMat, filterOutput = filterOutput, theta = thetaConst, CDFsupport = CDFsupport)
+
+
   # Construct the output list
   outputList <- list(
     "d_mat" = bootstrapOutput$d_statistic,
@@ -129,7 +173,7 @@ GenSamples <- function(N, BID, dgp1) {
       }
     } else {
       for (i in 4:nPeriods) {
-        y[i] <- eta[i] + .01 + y[i - 1] 
+        y[i] <- eta[i] + .01 + y[i - 1]
       }
     }
     # Discard the burn in period
