@@ -8,12 +8,14 @@
 
 RunMonteCarlo <- function(nSim, nPeriods, nBoot, dgp1) {
   yRandom <- GenSamples(N = nSim, BID = nPeriods, dgp1 = dgp1)
-  xSeq <- seq(-10, 10, .01)
+  xSeq <- seq(-25, 25, .01)
   monteCarloOutput <- apply(yRandom, 2, MonteCarloRoutine, nBoot = nBoot, dgp1 = dgp1, CDFsupport = xSeq)
   browser()
   # Bring the output into a proper form
   # theta mean
-  thetaMeanVec <- apply(sapply(monteCarloOutput, function(x) x$theta), 1, mean)
+  thetaMeanMat <- sapply(monteCarloOutput, function(x) x$theta)
+  thetaMeanMat <- matrix(thetaMeanMat, nr = 1)
+  thetaMeanVec <- apply(thetaMeanMat, 1, mean)
   # theta se
   thetaSeVec <- apply(sapply(monteCarloOutput, function(x) x$thetaSE), 1, mean)
   # median theta CI length
@@ -23,9 +25,7 @@ RunMonteCarlo <- function(nSim, nPeriods, nBoot, dgp1) {
   colnames(thetaCI) <- names(thetaMeanVec)
   # theta star mean
   thetaStarMeanVec <- apply(sapply(monteCarloOutput, function(x) x$theta_star), 1, mean)
-  monteCarloOutput[[2]][[2]]
-  
-  
+
   return(Output)
 }
 
@@ -59,17 +59,18 @@ MonteCarloRoutine <- function(dataVec, nBoot, dgp1, CDFsupport) {
     )
   }
   Output <- GridParamOptim(thetaMat = thetaMat, data = dataMat, dgp1 = dgp1)
-  theta <- Output[1, -1]
+  thetaConst <- Output[1, -1]
+  theta <- ParConstrain(thetaConst, dgp1 = dgp1)
   # Calculate the Hessian matrix for the best fitting parameter vector
-  Hessian <- optimHess(theta, KalmanRecursions, data = dataMat, outLogLik = TRUE, constrainParam = TRUE, dgp1 = dgp1)
-  thetaSE <- SEfctn(theta = theta, hessianMat = Hessian, dgp1 = dgp1)
+  Hessian <- optimHess(thetaConst, KalmanRecursions, data = dataMat, outLogLik = TRUE, constrainParam = TRUE, dgp1 = dgp1)
+  thetaSE <- SEfctn(theta = thetaConst, hessianMat = Hessian, dgp1 = dgp1)
   # Calculate the 90% CI for theta
   thetaCIlength <- (1.64 * thetaSE) * 2
   thetaCImat <- rbind(thetaCIlength / 2 + theta,
                       thetaCIlength / 2 - theta)
   # Get the filter output
-  filterOutput <- KalmanFilter(param = theta, data = dataMat, outLogLik = F, constrainParam = T, dgp1 = dgp1)
-  bootstrapOutput <- BootstrapRoutine(B = nBoot, data = dataMat, filterOutput = filterOutput, theta = theta, CDFsupport = CDFsupport)
+  filterOutput <- KalmanFilter(param = thetaConst, data = dataMat, outLogLik = F, constrainParam = T, dgp1 = dgp1)
+  bootstrapOutput <- BootstrapRoutine(B = nBoot, data = dataMat, filterOutput = filterOutput, theta = thetaConst, CDFsupport = CDFsupport)
   # Construct the output list
   outputList <- list(
     "d_mat" = bootstrapOutput$d_statistic,
@@ -128,7 +129,7 @@ GenSamples <- function(N, BID, dgp1) {
       }
     } else {
       for (i in 4:nPeriods) {
-        y[i] <- eta[i] #.01 + y[i - 1] + 
+        y[i] <- eta[i] + .01 + y[i - 1] 
       }
     }
     # Discard the burn in period

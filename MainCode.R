@@ -5,10 +5,10 @@ source("R/Init.R")
 Init()
 
 # Test the filter
-yRandom <- GenSamples(dgp1 = F, N = 1, BID = 200)
+yRandom <- GenSamples(dgp1 = F, N = 1, BID = 500)
 dataMat <- as.matrix(yRandom[, 1])
 
-KalmanFilter(param = c(1), data = dataMat, outLogLik = T, constrainParam = T, dgp1 = F)
+KalmanFilter(param = c(0), data = dataMat, outLogLik = T, constrainParam = T, dgp1 = F)
 
 # Test the parameter optimization
 ParamOptim(theta = rep(0, 1), data = dataMat, dgp1 = FALSE)

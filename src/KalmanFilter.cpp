@@ -147,6 +147,7 @@ List KalmanRecursions(vec paramVec, mat data, bool outLogLik, bool constrainPara
         cube P_tt_array(transDim, transDim, nPeriods, fill::zeros);
         cube K_t_array(transDim, obsDim, nPeriods, fill::zeros);
         mat e_hat_mat(nPeriods, obsDim, fill::zeros);
+        cube Sigma_sqrt_t(obsDim, obsDim, nPeriods, fill::zeros);
 
         // Initialize the filter routine (diffusely)
         // State vector with zeros
@@ -178,7 +179,8 @@ List KalmanRecursions(vec paramVec, mat data, bool outLogLik, bool constrainPara
                 // standardized prediction errors eq. (13)
                 // Bootstrap algorithm step 1
                 e_hat_t = real(sqrtmat(Sigma_inv_t)) * epsilon_t;
-
+                Sigma_sqrt_t.slice(i) = real(sqrtmat(Sigma_t));
+                
                 //-------------------//
                 // Updating step
                 //-------------------//
@@ -231,7 +233,9 @@ List KalmanRecursions(vec paramVec, mat data, bool outLogLik, bool constrainPara
                     _["P_tt"] = P_tt_array,
                     _["K_t"] = K_t_array,
                     _["e_hat"] = e_hat_mat,
-                    _["DGP1"] = dgp1);
+                    _["DGP1"] = dgp1,
+                    _["C_theta"] = C,
+                    _["Sigma_sqrt"] = Sigma_sqrt_t);
                 return outputList;
          }
 }

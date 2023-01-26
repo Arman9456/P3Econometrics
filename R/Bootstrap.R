@@ -42,8 +42,8 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport){
   theta_star_mean <- apply(theta_star, 2, mean)
   
   # Compute the distance to the non bootstrap theta
-  W_T_star <- sqrt(nPeriods) * (theta_star - theta)
-  browser()
+  W_T_star <- sqrt(nPeriods) * (theta_star - as.numeric(ParConstrain(theta, dgp1 = dgp1)))
+  
   
   G_starRaw <- apply(W_T_star, 2, function(W, CDFsupport){
    G_star <- sapply(CDFsupport, function(x, W_star){
@@ -59,7 +59,7 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport){
   cdfNorm <- pnorm(CDFsupport)
   # eq (23)
   V_hat <- cdfNorm * (1 - cdfNorm)
-  d_mat <- apply(G_star[,-1], 2, function(x){
+  d_mat <- apply(as.matrix(G_star[,-1]), 2, function(x){
     d <- sqrt(B) * V_hat^(-.5) * (x - cdfNorm)
   })
   d_output <- cbind(CDFsupport, d_mat)
@@ -76,10 +76,24 @@ GenBootObs <- function(data, filterOutput) {
   dimObs <- NCOL(data)
   # Draw the errors
   e_hat_star <- GenBootErr(forecastErr = filterOutput$e_hat)
+  C <- filterOutput$C_theta
+  Z_hat_star <- filterOutput$Z_tt
+  Sigma_sqrt <- filterOutput$Sigma_sqrt
+  
+  e_hat_stand <- rep(NA, NROW(e_hat_star))
+  for (i in 1:length(e_hat_stand)){
+    Sigma_sqrt_mat <- Sigma_sqrt[,,i]
+    e_hat_val <- e_hat_star[i,]
+    e_hat_stand[i] <- c(Sigma_sqrt_mat * e_hat_star[i,])
+  }
+  
+  browser()
+  
   # Construct the observation vector
-  y_star_mat <- e_hat_star
-  y_star_mat[1, ] <- data[1, ]
-  return(y_star_mat)
+  y_star_mat <- apply(Z_hat_star, 1, function(x) C %*% as.matrix(x))[-1] + e_hat_stand
+  y_star_final <- rbind(data[1, ], as.matrix(y_star_mat))
+  
+  return(y_star_final)
 }
 
 
