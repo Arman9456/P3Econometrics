@@ -15,7 +15,7 @@ KalmanFilter <- function(param, data, outLogLik, constrainParam, dgp1) {
     dgp1 = dgp1
   )
   # If the function only returns a likelihood value, extract this value from the output list
-  #if (outLogLik == TRUE) Output <- Output[[1]]
+  if (outLogLik == TRUE) Output <- Output[[1]]
   return(Output)
 }
 

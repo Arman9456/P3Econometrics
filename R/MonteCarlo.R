@@ -12,60 +12,75 @@ RunMonteCarlo <- function(nSim, nPeriods, nBoot, dgp1) {
   monteCarloOutput <- apply(yRandom, 2, MonteCarloRoutine, nBoot = nBoot, dgp1 = dgp1, CDFsupport = xSeq)
   # Bring the output into a proper form
   # theta mean
-  # thetaMeanMat <- sapply(monteCarloOutput, function(x) x$theta)
-  # thetaMeanMat <- matrix(thetaMeanMat, nr = 1)
-  # thetaMeanVec <- apply(thetaMeanMat, 1, mean)
+  thetaMeanMat <- sapply(monteCarloOutput, function(x) x$theta)
+  if (!is.matrix(thetaMeanMat)) thetaMeanMat <- matrix(thetaMeanMat, nr = 1)
+  thetaMeanVec <- apply(thetaMeanMat, 1, mean)
   # theta se
-  # thetaSeVec <- apply(sapply(monteCarloOutput, function(x) x$thetaSE), 1, mean)
+  thetaSeMat <- sapply(monteCarloOutput, function(x) x$thetaSE)
+  if (!is.matrix(thetaSeMat)) thetaSeMat <- matrix(thetaSeMat, nr = 1)
+  thetaSeVec <- apply(thetaSeMat, 1, mean)
   # median theta CI length
-  # thetaCIlength <- apply(sapply(monteCarloOutput, function(x) x$thetaCIlength), 1, median)
+  thetaCIlengtMat <- sapply(monteCarloOutput, function(x) x$thetaCIlength)
+  if (!is.matrix(thetaCIlengtMat)) thetaCIlengtMat <- matrix(thetaCIlengtMat, nr = 1)
+  thetaCIlength <- apply(thetaCIlengtMat, 1, median)
   # median theta CI length
-  # thetaCI <- matrix(apply(sapply(monteCarloOutput, function(x) x$thetaCI), 1, median), nr = 2)
-  # colnames(thetaCI) <- names(thetaMeanVec)
+  thetaCI <- matrix(apply(sapply(monteCarloOutput, function(x) x$thetaCI), 1, median), nr = 2)
+  colnames(thetaCI) <- names(thetaMeanVec)
   # theta star mean
-  # thetaStarMeanVec <- apply(sapply(monteCarloOutput, function(x) x$theta_star), 1, mean)
+  thetaStarMeanMat <- sapply(monteCarloOutput, function(x) x$theta_star)
+  if (!is.matrix(thetaStarMeanMat)) thetaStarMeanMat <- matrix(thetaStarMeanMat, nr = 1)
+  thetaStarMeanVec <- apply(thetaStarMeanMat, 1, mean)
 
   browser()
   # Doornik Hansen test
-  DHtestVec <- sapply(monteCarloOutput, function(x) {
-    d_df <- as.data.frame(x$d_mat[, -1])
-    testResult <- DH.test(d_df, Y.names = NULL)
-    pValue <- testResult$multi[, 3]
-    rejection <- ifelse(pValue <= .05, 0, 1)
-    return(rejection)
-  })
-  DHfrequency <- mean(DHtestVec)
+  # DHtestVec <- sapply(monteCarloOutput, function(x) {
+  #   d_df <- as.data.frame(x$d_mat[, -1])
+  #   testResult <- DH.test(d_df, Y.names = NULL)
+  #   pValue <- testResult$multi[, 3]
+  #   rejection <- ifelse(pValue <= .05, 0, 1)
+  #   return(rejection)
+  # })
+  # DHfrequency <- mean(DHtestVec)
   # Jarque-Bera test
-  JBtestMat <- sapply(monteCarloOutput, function(x) {
-    d_mat <- x$d_mat
-    rejectionVec <- apply(d_mat, 2, function(dVec) {
-      pValue <- jarque.bera.test(dVec)$p.value
-      rejection <- ifelse(pValue <= .05, 0, 1)
-      return(rejection)
-    })
-    return(rejectionVec)
-  })
-  JBfrequency <- apply(JBtestMat, 2, mean)
+  # JBtestMat <- sapply(monteCarloOutput, function(x) {
+  #   d_mat <- as.matrix(x$d_mat[, -1])
+  #   rejectionVec <- apply(d_mat, 2, function(dVec) {
+  #     pValue <- jarque.bera.test(dVec)$p.value
+  #     rejection <- ifelse(pValue <= .05, 0, 1)
+  #     return(rejection)
+  #   })
+  #   return(rejectionVec)
+  # })
+  # JBfrequency <- apply(JBtestMat, 2, mean)
   # Shapiro-Wilk
-  SWtestMat <- sapply(monteCarloOutput, function(x) {
-    d_mat <- x$d_mat
-    rejectionVec <- apply(d_mat, 2, function(dVec) {
-      pValue <- shapiro.test(dVec)$p.value
-      rejection <- ifelse(pValue <= .05, 0, 1)
-      return(rejection)
-    })
-    return(rejectionVec)
-  })
-  SWfrequency <- apply(SWtestMat, 2, mean)
-
+  # SWtestMat <- sapply(monteCarloOutput, function(x) {
+  #   d_mat <- as.matrix(x$d_mat[, -1])
+  #   rejectionVec <- apply(d_mat, 2, function(dVec) {browser()
+  #     pValue <- shapiro.test(dVec[-1])$p.value
+  #     rejection <- ifelse(pValue <= .05, 0, 1)
+  #     return(rejection)
+  #   })
+  #   return(rejectionVec)
+  # })
+  # SWfrequency <- apply(SWtestMat, 2, mean)
+  
+  
+  # Construct the Bootstrap Percentile CI
+  Q_vec <- sapply(monteCarloOutput, function(x) x$Qstat)
+  theta_star_CI <- BootCI(Q = Q_vec, mean = thetaMeanVec, se = thetaSeVec, alpha = .9, nPeriods = nPeriods)
 
   # Construct the output
   Output <- list(
+    "thetaMean" = thetaMeanVec,
+    "thetaSE" = thetaSeVec,
+    "thetaCIlength" = thetaCIlength,
+    "thetaCI" = thetaCI,
+    "thetaStarMean" = thetaStarMeanVec,
     "DHfrequency" = DHfrequency,
     "JBfrequency" = JBfrequency,
-    "SWfrequency" = SWfrequency
+    "SWfrequency" = SWfrequency,
+    "thetaStarCI" = theta_star_CI
   )
-
   return(Output)
 }
 
@@ -94,7 +109,7 @@ MonteCarloRoutine <- function(dataVec, nBoot, dgp1, CDFsupport) {
       nr = nGrid
     )
   } else {
-    thetaMat <- matrix(c(runif(nGrid, 0, 1)),
+    thetaMat <- matrix(c(runif(nGrid, 0, 1)), # eta
       nr = nGrid
     )
   }
@@ -110,10 +125,10 @@ MonteCarloRoutine <- function(dataVec, nBoot, dgp1, CDFsupport) {
     thetaCIlength / 2 + theta,
     thetaCIlength / 2 - theta
   )
+
   # Get the filter output
   filterOutput <- KalmanFilter(param = thetaConst, data = dataMat, outLogLik = F, constrainParam = T, dgp1 = dgp1)
   bootstrapOutput <- BootstrapRoutine(B = nBoot, data = dataMat, filterOutput = filterOutput, theta = thetaConst, CDFsupport = CDFsupport)
-
 
   # Construct the output list
   outputList <- list(
@@ -122,7 +137,8 @@ MonteCarloRoutine <- function(dataVec, nBoot, dgp1, CDFsupport) {
     "thetaSE" = thetaSE,
     "thetaCIlength" = thetaCIlength,
     "thetaCI" = thetaCImat,
-    "theta_star" = bootstrapOutput$theta_star
+    "theta_star" = bootstrapOutput$theta_star,
+    "Qstat" = bootstrapOutput$Qstat
   )
   return(outputList)
 }
@@ -181,4 +197,20 @@ GenSamples <- function(N, BID, dgp1) {
     return(y_out)
   }, BI = BI, BID = BID, paramVec = paramVec)
   return(ymat)
+}
+
+
+#' @description Constructs the bootstrap CI with which the boot coverage may be computed
+#' @param Q vector with the bootstrap test statistic
+#' @param mean vector with the mean of the sample theta
+#' @param se vector with the SE of the sample theta
+#' @param alpha confidence level
+#' @param nPeriods number of time periods observed
+#' @return matrix with two rows for the lower and upper limits
+
+BootCI <- function(Q, mean, se, alpha, nPeriods) {
+  c_star <- quantile(Q, prob = c((1 - alpha) / 2, 1 - (1 - alpha) / 2))
+  lowerCI <- mean - c_star[2] * se / sqrt(nPeriods)
+  upperCI <- mean - c_star[1] * se / sqrt(nPeriods)
+  return(rbind(upperCI, lowerCI))
 }
