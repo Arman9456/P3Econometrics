@@ -7,9 +7,13 @@
 #' (one per estimated structural parameter)
 
 RunMonteCarlo <- function(nSim, nPeriods, nBoot, dgp1) {
+  # Generate all the sample paths
   yRandom <- GenSamples(N = nSim, BID = nPeriods, dgp1 = dgp1)
+  # Support of the empirical distribution functions
   xSeq <- seq(-25, 25, .01)
+  # Run the individual simulations
   monteCarloOutput <- apply(yRandom, 2, MonteCarloRoutine, nBoot = nBoot, dgp1 = dgp1, CDFsupport = xSeq)
+
   # Bring the output into a proper form
   # theta mean
   thetaMeanMat <- sapply(monteCarloOutput, function(x) x$theta)
@@ -32,6 +36,7 @@ RunMonteCarlo <- function(nSim, nPeriods, nBoot, dgp1) {
   thetaStarMeanVec <- apply(thetaStarMeanMat, 1, mean)
 
   browser()
+  # Test the final test density for normality
   # Doornik Hansen test
   # DHtestVec <- sapply(monteCarloOutput, function(x) {
   #   d_df <- as.data.frame(x$d_mat[, -1])
@@ -63,8 +68,7 @@ RunMonteCarlo <- function(nSim, nPeriods, nBoot, dgp1) {
   #   return(rejectionVec)
   # })
   # SWfrequency <- apply(SWtestMat, 2, mean)
-  
-  
+
   # Construct the Bootstrap Percentile CI
   Q_vec <- sapply(monteCarloOutput, function(x) x$Qstat)
   theta_star_CI <- BootCI(Q = Q_vec, mean = thetaMeanVec, se = thetaSeVec, alpha = .9, nPeriods = nPeriods)
@@ -94,7 +98,8 @@ RunMonteCarlo <- function(nSim, nPeriods, nBoot, dgp1) {
 
 MonteCarloRoutine <- function(dataVec, nBoot, dgp1, CDFsupport) {
   dataMat <- as.matrix(dataVec)
-  # Run a parameter gridsearch for the original theta
+
+  # Run a quick grid search for the original parameter vector theta
   nGrid <- 50
   if (dgp1 == TRUE) {
     thetaMat <- matrix(
@@ -113,21 +118,27 @@ MonteCarloRoutine <- function(dataVec, nBoot, dgp1, CDFsupport) {
       nr = nGrid
     )
   }
+  # Run the grid search
   Output <- GridParamOptim(thetaMat = thetaMat, data = dataMat, dgp1 = dgp1)
   thetaConst <- Output[1, -1]
+  # Note that the routine outputs parameters that are still unconstrained
   theta <- ParConstrain(thetaConst, dgp1 = dgp1)
+
   # Calculate the Hessian matrix for the best fitting parameter vector
   Hessian <- optimHess(thetaConst, KalmanRecursions, data = dataMat, outLogLik = TRUE, constrainParam = TRUE, dgp1 = dgp1)
+  # Based on the Hessian, compute the standard errors of the sample theta
   thetaSE <- SEfctn(theta = thetaConst, hessianMat = Hessian, dgp1 = dgp1)
+
   # Calculate the 90% CI for theta
   thetaCIlength <- (1.64 * thetaSE) * 2
   thetaCImat <- rbind(
     thetaCIlength / 2 + theta,
     thetaCIlength / 2 - theta
   )
-
   # Get the filter output
   filterOutput <- KalmanFilter(param = thetaConst, data = dataMat, outLogLik = F, constrainParam = T, dgp1 = dgp1)
+
+  # Based on the sample theta and the filter output, run the bootstrap
   bootstrapOutput <- BootstrapRoutine(B = nBoot, data = dataMat, filterOutput = filterOutput, theta = thetaConst, CDFsupport = CDFsupport)
 
   # Construct the output list
@@ -161,6 +172,7 @@ GenSamples <- function(N, BID, dgp1) {
   SdEpsilon <- .05
   paramVec <- c(phi_1, phi_2, SdEpsilon, SdEta, SdU, SdE)
   BI <- 500
+
   # Generate the samples
   ymat <- sapply(1:N, function(x, BI, BID, paramVec) {
     phi_1 <- paramVec[1]
@@ -179,6 +191,7 @@ GenSamples <- function(N, BID, dgp1) {
     eta <- rnorm(nPeriods, sd = SdEta)
     u <- rnorm(nPeriods, sd = SdU)
     e <- rnorm(nPeriods, sd = SdE)
+
     # Construct the components
     if (dgp1 == TRUE) {
       for (i in 4:nPeriods) {
@@ -189,13 +202,15 @@ GenSamples <- function(N, BID, dgp1) {
       }
     } else {
       for (i in 4:nPeriods) {
-        y[i] <- eta[i] + .01 + y[i - 1]
+        y[i] <- .01 + y[i - 1] + eta[i]
       }
     }
+
     # Discard the burn in period
     y_out <- y[-c(1:(3 + BI))]
     return(y_out)
   }, BI = BI, BID = BID, paramVec = paramVec)
+
   return(ymat)
 }
 

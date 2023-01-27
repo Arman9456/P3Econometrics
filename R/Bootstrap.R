@@ -1,8 +1,8 @@
 #' @description Function that runs the bootstrap routine
 #' @param B number of bootstrap draws
 #' @param data matrix with the data. One column per observed variable
-#' @param filterOutput output from the KalmanFilter function
-#' @param theta non bootstrap maximum likelihood parameter vector
+#' @param filterOutput output from the KalmanFilter function based on the sample theta
+#' @param theta sample maximum likelihood parameter vector (still unconstrained)
 #' @param CDFsupport numerical vector. Values for which the CDF is evaluated
 #' @return the test statistic d for each element of the parameter vector
 
@@ -12,40 +12,45 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport) {
   # Get some parameters
   nPeriods <- NROW(data)
   dgp1 <- filterOutput$DGP1
-  # Compute the bootstrap ML estimates
+  # Generate the bootstrap samples and the associated parameter estimates. The sample theta serves as
+  # the initial values for the parameter optimization
   theta_star_matRaw <- sapply(1:B, function(x) {
     y_star <- GenBootObs(data, filterOutput)
     theta_star <- ParamOptim(theta = theta, data = y_star, dgp1 = dgp1)[-1]
   }) %>%
     t()
-  # In case the matrix is transposes when only one parameter is estimates
+  # In case only one parameter is estimated, this matrix has to be transposed
   if (NROW(theta_star_matRaw) == 1) theta_star_matRaw <- t(theta_star_matRaw)
   theta_star <- theta_star_matRaw[!is.na(theta_star_matRaw[, 1]), ]
   if (NCOL(theta_star_matRaw) == 1) theta_star <- as.matrix(theta_star)
   nColResults <- NROW(theta_star)
 
-  # In case the optimization failed somewhere
+  # In case the optimization failed somewhere, the routine is repeated until we have B theta_star estimates
   while (nColResults < B) {
-    theta_star_matRaw <- sapply(1:(B / 3), function(x) {
+    theta_star_matRaw <- sapply(1:(B / 3), function(x){
       y_star <- GenBootObs(data, filterOutput)
       theta_star <- ParamOptim(theta = theta, data = y_star, dgp1 = dgp1)[-1]
     }) %>%
       t()
-    # In case the matrix is transposes when only one parameter is estimates
+    # In case only one parameter is estimated, this matrix has to be transposed
     if (NROW(theta_star_matRaw) == 1) theta_star_matRaw <- t(theta_star_matRaw)
     theta_star_sub <- theta_star_matRaw[!is.na(theta_star_matRaw[, 1]), ]
     if (NCOL(theta_star_matRaw) == 1) theta_star_sub <- as.matrix(theta_star_sub)
     theta_star <- rbind(theta_star, theta_star_sub)
     nColResults <- NROW(theta_star)
   }
+  # Collect the results
   theta_star <- as.matrix(theta_star[1:B, ])
   theta_star_mean <- apply(theta_star, 2, mean)
   thetaML <- as.numeric(ParConstrain(theta, dgp1 = dgp1))
+
+  # Compute the test statistic for the bootstrap CI
   Q_stat <- BootstrapQstat(theta = thetaML, theta_star_mat = theta_star, nPeriods = nPeriods)
 
-  # Compute the distance to the non bootstrap theta
+  # Compute the standardized distance from sample to bootstrap theta
   W_T_star <- sqrt(nPeriods) * (theta_star - thetaML)
 
+  # Compute the empirical distribution (G_star) of the difference between the bootstrap and the sample theta
   G_starRaw <- apply(W_T_star, 2, function(W, CDFsupport) {
     G_star <- sapply(CDFsupport, function(x, W_star) {
       # eq (17)
@@ -56,14 +61,17 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport) {
   }, CDFsupport = CDFsupport)
   # Bring the matrix into a proper format (first column is x, the remaining columns are the function values)
   G_star <- cbind(CDFsupport, G_starRaw[-c(1:length(CDFsupport)), ])
+
   # Pull the values of the standard normal CDF
   cdfNorm <- pnorm(CDFsupport)
-  # eq (23)
+
+  # Construct the final test distribution d eq (23)
   V_hat <- cdfNorm * (1 - cdfNorm)
   d_mat <- apply(as.matrix(G_star[, -1]), 2, function(x) {
     d <- sqrt(B) * V_hat^(-.5) * (x - cdfNorm)
   })
   d_output <- cbind(CDFsupport, d_mat)
+
   return(list(
     "d_statistic" = d_output,
     "theta_star" = theta_star_mean,
@@ -110,10 +118,14 @@ GenBootErr <- function(forecastErr) {
 
 
 #' @description Function constructing the test statistic for the Equal-tailed Percentile CI - Interval
+#' @param theta sample maximum likelihood parameter vector
+#' @param theta_star_mat matrix with the bootstrap theta vectors
+#' @param nPeriods number of time periods considered
 #' @return the test statistic
 
 BootstrapQstat <- function(theta, theta_star_mat, nPeriods) {
   theta_star_sd <- apply(theta_star_mat, 2, sd)
   theta_star_mean <- apply(theta_star_mat, 2, mean)
   Q_stat <- sqrt(nPeriods) * (theta_star_mean - theta) / theta_star_sd
+  return(Q_stat)
 }

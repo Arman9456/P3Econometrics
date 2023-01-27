@@ -42,4 +42,4 @@ d_mat <- BootstrapRoutine(B = 5, data = dataMat, filterOutput = filterOutput, th
 plot(d_mat[,2] ~ d_mat[,1], type = "l")
 
 #iterationOutput <- MonteCarloRoutine(dataVec = yRandom[, 1], nBoot = 10, dgp1 = T, CDFsupport = seq(-10, 10, .01))
-MonteCarloOutput <- RunMonteCarlo(nSim = 5, nPeriods = 100, nBoot = 10, dgp1 = F)
+MonteCarloOutput <- RunMonteCarlo(nSim = 5, nPeriods = 100, nBoot = 10, dgp1 = T)
