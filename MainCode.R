@@ -5,13 +5,12 @@ source("R/Init.R")
 Init()
 
 # Test the filter
-yRandom <- GenSamples(dgp1 = F, N = 1, BID = 500)
+yRandom <- GenSamples(dgp1 = F, N = 1, BID = 1000)
 dataMat <- as.matrix(yRandom[, 1])
 
 KalmanFilter(param = c(0), data = dataMat, outLogLik = T, constrainParam = T, dgp1 = F)
 
 # Test the parameter optimization
-ParamOptim(theta = rep(0, 1), data = dataMat, dgp1 = FALSE)
 # Test the paramter grid search
 N <- 10
 thetaMat <- matrix(c(runif(N, 0, 1),
@@ -42,4 +41,11 @@ d_mat <- BootstrapRoutine(B = 5, data = dataMat, filterOutput = filterOutput, th
 plot(d_mat[,2] ~ d_mat[,1], type = "l")
 
 #iterationOutput <- MonteCarloRoutine(dataVec = yRandom[, 1], nBoot = 10, dgp1 = T, CDFsupport = seq(-10, 10, .01))
-MonteCarloOutput <- RunMonteCarlo(nSim = 5, nPeriods = 100, nBoot = 10, dgp1 = T)
+MonteCarloOutput <- RunMonteCarlo(nSim = 5, nPeriods = 1000, nBoot = 10, dgp1 = F)
+
+output <- sapply(1:100, function(x){
+  dataMat_star <- GenSamples(dgp1 = F, N = 1, BID = 1000)
+  output <- ParamOptim(theta = theta, data = dataMat_star, dgp1 = FALSE)[2]
+  return(output)
+})
+mean(output)

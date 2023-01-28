@@ -10,7 +10,7 @@ RunMonteCarlo <- function(nSim, nPeriods, nBoot, dgp1) {
   # Generate all the sample paths
   yRandom <- GenSamples(N = nSim, BID = nPeriods, dgp1 = dgp1)
   # Support of the empirical distribution functions
-  xSeq <- seq(-25, 25, .01)
+  xSeq <- seq(-20, 20, .01)
   # Run the individual simulations
   monteCarloOutput <- apply(yRandom, 2, MonteCarloRoutine, nBoot = nBoot, dgp1 = dgp1, CDFsupport = xSeq)
 
@@ -38,36 +38,36 @@ RunMonteCarlo <- function(nSim, nPeriods, nBoot, dgp1) {
   browser()
   # Test the final test density for normality
   # Doornik Hansen test
-  # DHtestVec <- sapply(monteCarloOutput, function(x) {
-  #   d_df <- as.data.frame(x$d_mat[, -1])
-  #   testResult <- DH.test(d_df, Y.names = NULL)
-  #   pValue <- testResult$multi[, 3]
-  #   rejection <- ifelse(pValue <= .05, 0, 1)
-  #   return(rejection)
-  # })
-  # DHfrequency <- mean(DHtestVec)
+  DHtestVec <- sapply(monteCarloOutput, function(x) {browser()
+    d_df <- as.data.frame(x$d_mat[, -1])
+    testResult <- DH.test(d_df, Y.names = NULL)
+    pValue <- testResult$multi[, 3]
+    rejection <- ifelse(pValue <= .05, 0, 1)
+    return(rejection)
+  })
+  DHfrequency <- mean(DHtestVec)
   # Jarque-Bera test
-  # JBtestMat <- sapply(monteCarloOutput, function(x) {
-  #   d_mat <- as.matrix(x$d_mat[, -1])
-  #   rejectionVec <- apply(d_mat, 2, function(dVec) {
-  #     pValue <- jarque.bera.test(dVec)$p.value
-  #     rejection <- ifelse(pValue <= .05, 0, 1)
-  #     return(rejection)
-  #   })
-  #   return(rejectionVec)
-  # })
-  # JBfrequency <- apply(JBtestMat, 2, mean)
+  JBtestMat <- sapply(monteCarloOutput, function(x) {
+    d_mat <- as.matrix(x$d_mat[, -1])
+    rejectionVec <- apply(d_mat, 2, function(dVec) {
+      pValue <- JBtest(dVec)
+      rejection <- ifelse(pValue <= .05, 0, 1)
+      return(rejection)
+    })
+    return(rejectionVec)
+  })
+  JBfrequency <- apply(JBtestMat, 2, mean)
   # Shapiro-Wilk
-  # SWtestMat <- sapply(monteCarloOutput, function(x) {
-  #   d_mat <- as.matrix(x$d_mat[, -1])
-  #   rejectionVec <- apply(d_mat, 2, function(dVec) {browser()
-  #     pValue <- shapiro.test(dVec[-1])$p.value
-  #     rejection <- ifelse(pValue <= .05, 0, 1)
-  #     return(rejection)
-  #   })
-  #   return(rejectionVec)
-  # })
-  # SWfrequency <- apply(SWtestMat, 2, mean)
+  SWtestMat <- sapply(monteCarloOutput, function(x) {
+    d_mat <- as.matrix(x$d_mat[, -1])
+    rejectionVec <- apply(d_mat, 2, function(dVec) {
+      pValue <- shapiro.test(dVec[-1])$p.value
+      rejection <- ifelse(pValue <= .05, 0, 1)
+      return(rejection)
+    })
+    return(rejectionVec)
+  })
+  SWfrequency <- apply(SWtestMat, 2, mean)
 
   # Construct the Bootstrap Percentile CI
   Q_vec <- sapply(monteCarloOutput, function(x) x$Qstat)
@@ -162,7 +162,7 @@ MonteCarloRoutine <- function(dataVec, nBoot, dgp1, CDFsupport) {
 #' @return matrix with the drawn samples. One column per sample path.
 
 GenSamples <- function(N, BID, dgp1) {
-  set.seed(123)
+  # set.seed(123)
   # Specify the parameters
   phi_1 <- 0.1
   phi_2 <- 0.12

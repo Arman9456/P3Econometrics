@@ -28,7 +28,7 @@ KalmanFilter <- function(param, data, outLogLik, constrainParam, dgp1) {
 
 GridParamOptim <- function(thetaMat, data, dgp1) {
   if (!is.matrix(data)) data <- matrix(data, nc = 1)
-  
+
   # Wrap the optimization in a tryCatch in case the routine fails
   resultsOptim <- apply(thetaMat, 1, function(theta, data) {
     return(c(
@@ -54,7 +54,7 @@ GridParamOptim <- function(thetaMat, data, dgp1) {
     }
   }, nparams = NCOL(thetaMat) + 1) %>%
     t()
-  
+
   if (dgp1 == TRUE) {
     colnames(optimUnfltrd) <- c("ll", "phi_1", "phi_2", "SdEta", "SdU", "SdE", "SdEpsilon")
   } else {
@@ -70,13 +70,14 @@ GridParamOptim <- function(thetaMat, data, dgp1) {
 
 
 #' @description Function that finds the ML estimates for vector of initial values
+#' @param theta sample parameter vector theta (still constrained)
 #' @param data matrix with the data. One column per observed variable
 #' @param dgp1 boolean. If True, the simulation and estimation concern DGP 1. Else DGP 2
 #' @return vector with the log likelihood and ML estimates
 
 ParamOptim <- function(theta, data, dgp1) {
   if (!is.matrix(data)) data <- matrix(data, nc = 1)
-  
+
   # Wrap the optimization in a tryCatch in case the routine fails
   optimResult <- c(
     tryCatch(optim(theta,
@@ -91,7 +92,7 @@ ParamOptim <- function(theta, data, dgp1) {
     if (optimResult$convergence != 0) warning("Convergence of the likelihood maximation likely not archieved \n")
     outputVec <- c(-optimResult$value, ParConstrain(optimResult$par, dgp1 = dgp1))
   }
-  
+
   if (dgp1 == TRUE) {
     names(outputVec) <- c("ll", "phi_1", "phi_2", "SdEta", "SdU", "SdE", "SdEpsilon")
   } else {
@@ -131,14 +132,14 @@ InvParConstrain_fctn <- function(paramVec, dgp1) {
     # this function triggers a warning since it returns the correction factor for only variable (phi_2)
     # even though it takes two parameters as its input
     suppressWarnings({
-    correctionVec[2] <- numDeriv::jacobian(function(x) {
-      phi_1 <- x[1]
-      phi_2 <- x[2]
-      -sum(
-        ((1 - abs(2 * phi_1 / (1 + abs(phi_1)))) * phi_2) / (1 + abs(phi_2)),
-        2 * phi_1 / (1 + phi_1)
-      )
-    }, x = c(paramVec[1] / 2, paramVec[2]))
+      correctionVec[2] <- numDeriv::jacobian(function(x) {
+        phi_1 <- x[1]
+        phi_2 <- x[2]
+        -sum(
+          ((1 - abs(2 * phi_1 / (1 + abs(phi_1)))) * phi_2) / (1 + abs(phi_2)),
+          2 * phi_1 / (1 + phi_1)
+        )
+      }, x = c(paramVec[1] / 2, paramVec[2]))
     })
     correctionVec[3:6] <- diag(numDeriv::jacobian(exp, paramVec[3:6]))
     # Build the final correction matrix

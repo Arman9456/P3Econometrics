@@ -14,6 +14,8 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport) {
   dgp1 <- filterOutput$DGP1
   # Generate the bootstrap samples and the associated parameter estimates. The sample theta serves as
   # the initial values for the parameter optimization
+  browser()
+
   theta_star_matRaw <- sapply(1:B, function(x) {
     y_star <- GenBootObs(data, filterOutput)
     theta_star <- ParamOptim(theta = theta, data = y_star, dgp1 = dgp1)[-1]
@@ -27,8 +29,9 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport) {
 
   # In case the optimization failed somewhere, the routine is repeated until we have B theta_star estimates
   while (nColResults < B) {
-    theta_star_matRaw <- sapply(1:(B / 3), function(x){
+    theta_star_matRaw <- sapply(1:(B / 3), function(x) {
       y_star <- GenBootObs(data, filterOutput)
+
       theta_star <- ParamOptim(theta = theta, data = y_star, dgp1 = dgp1)[-1]
     }) %>%
       t()
@@ -49,6 +52,7 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport) {
 
   # Compute the standardized distance from sample to bootstrap theta
   W_T_star <- sqrt(nPeriods) * (theta_star - thetaML)
+  # W_T_star <- (W_T_star - mean(W_T_star)) / sd(W_T_star)
 
   # Compute the empirical distribution (G_star) of the difference between the bootstrap and the sample theta
   G_starRaw <- apply(W_T_star, 2, function(W, CDFsupport) {
@@ -65,10 +69,15 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport) {
   # Pull the values of the standard normal CDF
   cdfNorm <- pnorm(CDFsupport)
 
+  # plot(cdfNorm ~ G_star[,1], col = "red", type = "l")
+  # lines(G_star[,2] ~ G_star[,1], type = "l")
+
   # Construct the final test distribution d eq (23)
   V_hat <- cdfNorm * (1 - cdfNorm)
   d_mat <- apply(as.matrix(G_star[, -1]), 2, function(x) {
-    d <- sqrt(B) * V_hat^(-.5) * (x - cdfNorm)
+    d <- sqrt(B) * (x - cdfNorm) * V_hat^(-.5)
+    d[is.na(d)] <- 0
+    return(d)
   })
   d_output <- cbind(CDFsupport, d_mat)
 
@@ -86,22 +95,30 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport) {
 #' @return matrix with the bootstrapped observation vector
 
 GenBootObs <- function(data, filterOutput) {
-  dimObs <- NCOL(data)
-  # Draw the errors
-  e_hat_star <- GenBootErr(forecastErr = filterOutput$e_hat)
-  C <- filterOutput$C_theta
+  # Extract the filter output
+  e_hat <- filterOutput$e_hat
   Z_hat_star <- filterOutput$Z_tt
+  C <- filterOutput$C_theta
   Sigma_sqrt <- filterOutput$Sigma_sqrt
-  # Standardize the errors
-  e_hat_stand <- sapply(1:NROW(e_hat_star), function(x, Sigma, e_hat_star) {
+
+  # Draw the errors (eq. 14)
+  e_hat_center <- e_hat - mean(e_hat)
+  e_hat_star <- GenBootErr(forecastErr = e_hat_center)
+  # To prevent errors
+  e_hat_star[is.na(e_hat_star)] <- 0
+
+  # Reapply the sd to the standardized the errors
+  e_hat_fin <- sapply(1:NROW(e_hat_star), function(x, Sigma, e_hat_star) {
     e_hat_star[x, ] %*% Sigma[, , x]
   }, Sigma = Sigma_sqrt, e_hat_star = e_hat_star)
 
   # Construct the observation vector
-  y_star_mat <- apply(Z_hat_star, 1, function(x) C %*% as.matrix(x))[-1] + e_hat_stand
+  y_star_mat <- apply(Z_hat_star, 1, function(x) C %*% as.matrix(x))[-1] + e_hat_star
   y_star_final <- rbind(data[1, ], as.matrix(y_star_mat))
 
-  return(y_star_final)
+  # Do not return the first three observations as these exhibit an exaggerated variance due to the diffuse initialization of the 
+  # Kalman filter and subsequently upwards bias the variance of the bootstrapped data
+  return(y_star_final[-c(1:3)])
 }
 
 
