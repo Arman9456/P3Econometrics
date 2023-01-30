@@ -14,13 +14,12 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport) {
   dgp1 <- filterOutput$DGP1
   # Generate the bootstrap samples and the associated parameter estimates. The sample theta serves as
   # the initial values for the parameter optimization
-  browser()
-
   theta_star_matRaw <- sapply(1:B, function(x) {
     y_star <- GenBootObs(data, filterOutput)
     theta_star <- ParamOptim(theta = theta, data = y_star, dgp1 = dgp1)[-1]
   }) %>%
     t()
+
   # In case only one parameter is estimated, this matrix has to be transposed
   if (NROW(theta_star_matRaw) == 1) theta_star_matRaw <- t(theta_star_matRaw)
   theta_star <- theta_star_matRaw[!is.na(theta_star_matRaw[, 1]), ]
@@ -52,7 +51,6 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport) {
 
   # Compute the standardized distance from sample to bootstrap theta
   W_T_star <- sqrt(nPeriods) * (theta_star - thetaML)
-  # W_T_star <- (W_T_star - mean(W_T_star)) / sd(W_T_star)
 
   # Compute the empirical distribution (G_star) of the difference between the bootstrap and the sample theta
   G_starRaw <- apply(W_T_star, 2, function(W, CDFsupport) {
@@ -68,9 +66,6 @@ BootstrapRoutine <- function(B, data, filterOutput, theta, CDFsupport) {
 
   # Pull the values of the standard normal CDF
   cdfNorm <- pnorm(CDFsupport)
-
-  # plot(cdfNorm ~ G_star[,1], col = "red", type = "l")
-  # lines(G_star[,2] ~ G_star[,1], type = "l")
 
   # Construct the final test distribution d eq (23)
   V_hat <- cdfNorm * (1 - cdfNorm)
@@ -114,11 +109,12 @@ GenBootObs <- function(data, filterOutput) {
 
   # Construct the observation vector
   y_star_mat <- apply(Z_hat_star, 1, function(x) C %*% as.matrix(x))[-1] + e_hat_star
-  y_star_final <- rbind(data[1, ], as.matrix(y_star_mat))
+  
+  y_star_final <- rbind(as.matrix(data[1:3, ]), as.matrix(y_star_mat[-c(1:2), ]))
 
-  # Do not return the first three observations as these exhibit an exaggerated variance due to the diffuse initialization of the 
+  # Do not return the first three observations as these exhibit an exaggerated variance due to the diffuse initialization of the
   # Kalman filter and subsequently upwards bias the variance of the bootstrapped data
-  return(y_star_final[-c(1:3)])
+  return(y_star_final)
 }
 
 

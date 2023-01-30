@@ -29,7 +29,7 @@ vec ParConstrain(vec paramVec, bool dgp1)
 {
   vec constrPar = paramVec;
 
-  if (dgp1 == true)
+  if (dgp1 == false)
   {
     // Constrain AR parameters of the cycle to result in a stable process
     double phi_1 = 2 * paramVec(0) / (1 + abs(paramVec(0)));
@@ -64,7 +64,7 @@ List SystemMat_fctn(vec paramVec, bool constrainParam, bool dgp1)
     constrPar = paramVec;
   }
   int transObs;
-  if (dgp1 == true)
+  if (dgp1 == false)
   {
     transObs = 4;
   }
@@ -81,7 +81,7 @@ List SystemMat_fctn(vec paramVec, bool constrainParam, bool dgp1)
   mat D(1, 1, fill::zeros);
   mat Q;
 
-  if (dgp1 == true)
+  if (dgp1 == false)
   {
     double phi_1 = constrPar[0];
     double phi_2 = constrPar[1];

@@ -1,51 +1,11 @@
-# Main code#
+# Set up the project
 rm(list = ls())
-
 source("R/Init.R")
 Init()
 
-# Test the filter
-yRandom <- GenSamples(dgp1 = F, N = 1, BID = 1000)
-dataMat <- as.matrix(yRandom[, 1])
+# Run the Monte Carlo simulation for DGP 1
+MonteCarloOutput_DGP1 <- RunMonteCarlo(nSim = 2000, nPeriods = 100, nBoot = 20, dgp1 = TRUE)
 
-KalmanFilter(param = c(0), data = dataMat, outLogLik = T, constrainParam = T, dgp1 = F)
 
-# Test the parameter optimization
-# Test the paramter grid search
-N <- 10
-thetaMat <- matrix(c(runif(N, 0, 1),
-  runif(N, 0, 1),
-  log(runif(N, .5, 2)), # eta
-  log(runif(N, 0, .1)), # u
-  log(runif(N, 0, 1)), # e
-  log(runif(N, 0, 1.5))), # epsilon
-  nr = N)
-
-thetaMat <- matrix(c(log(runif(N, .5, 2))), # eta
-                   nr = N)
-
-Output <- GridParamOptim(thetaMat = thetaMat, data = dataMat, dgp1 = F)
-apply(as.matrix(Output[, -1]), 1, ParConstrain, dgp1 = F) %>% t()
-
-filterOutput <- KalmanFilter(param = Output[1, -1], data = dataMat, outLogLik = F, constrainParam = T, dgp1 = F)
-
-plot(filterOutput$Z_tt[, 1] + filterOutput$Z_tt[, 3], type = "l")
-plot(filterOutput$Z_tt[, 1], type = "l")
-lines(dataMat, col = "red")
-
-filterOutput$Z_tt[, 2]
-# Test the bootstrap
-y_star <- GenBootObs(data = dataMat, filterOutput = filterOutput)
-
-d_mat <- BootstrapRoutine(B = 5, data = dataMat, filterOutput = filterOutput, theta = Output[1,-1])
-plot(d_mat[,2] ~ d_mat[,1], type = "l")
-
-#iterationOutput <- MonteCarloRoutine(dataVec = yRandom[, 1], nBoot = 10, dgp1 = T, CDFsupport = seq(-10, 10, .01))
-MonteCarloOutput <- RunMonteCarlo(nSim = 5, nPeriods = 1000, nBoot = 10, dgp1 = F)
-
-output <- sapply(1:100, function(x){
-  dataMat_star <- GenSamples(dgp1 = F, N = 1, BID = 1000)
-  output <- ParamOptim(theta = theta, data = dataMat_star, dgp1 = FALSE)[2]
-  return(output)
-})
-mean(output)
+# Run the Monte Carlo simulation for DGP 2
+MonteCarloOutput_DGP2 <- RunMonteCarlo(nSim = 2000, nPeriods = 100, nBoot = 20, dgp1 = FALSE)

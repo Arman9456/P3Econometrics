@@ -55,7 +55,7 @@ GridParamOptim <- function(thetaMat, data, dgp1) {
   }, nparams = NCOL(thetaMat) + 1) %>%
     t()
 
-  if (dgp1 == TRUE) {
+  if (dgp1 == FALSE) {
     colnames(optimUnfltrd) <- c("ll", "phi_1", "phi_2", "SdEta", "SdU", "SdE", "SdEpsilon")
   } else {
     colnames(optimUnfltrd) <- c("ll", "SdEta")
@@ -93,7 +93,7 @@ ParamOptim <- function(theta, data, dgp1) {
     outputVec <- c(-optimResult$value, ParConstrain(optimResult$par, dgp1 = dgp1))
   }
 
-  if (dgp1 == TRUE) {
+  if (dgp1 == FALSE) {
     names(outputVec) <- c("ll", "phi_1", "phi_2", "SdEta", "SdU", "SdE", "SdEpsilon")
   } else {
     names(outputVec) <- c("ll", "SdEta")
@@ -125,7 +125,7 @@ SEfctn <- function(theta, hessianMat, dgp1) {
 
 InvParConstrain_fctn <- function(paramVec, dgp1) {
   correctionVec <- rep(1, length(paramVec))
-  if (dgp1 == TRUE) {
+  if (dgp1 == FALSE) {
     correctionVec[1] <- numDeriv::jacobian(function(x) {
       2 * x / (1 + abs(x))
     }, x = paramVec[1])
